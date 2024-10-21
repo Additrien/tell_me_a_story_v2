@@ -1,0 +1,4 @@
+routes:
+  - path: "/generate-story"
+    method: "POST"
+    enabled: true
