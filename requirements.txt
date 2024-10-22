@@ -8,3 +8,4 @@ pyaudio==0.2.14
 transformers==4.45.2
 torch==2.5.0+cpu
 google-generativeai==0.6.10
+soundfile==0.12.1
