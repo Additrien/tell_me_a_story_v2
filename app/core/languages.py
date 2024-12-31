@@ -1,118 +1,52 @@
-"""
-Language configuration for MMS-TTS.
-Auto-generated from: https://dl.fbaipublicfiles.com/mms/misc/language_coverage_mms.html
-"""
+"""Language configuration and mapping utilities."""
 
-from typing import Dict, List
-
-# Full mapping of language codes to their names
-LANGUAGE_CODES: Dict[str, str] = {
-    "abi": "Abidji",
-    "abp": "Ayta, Abellen",
-    "aca": "Achagua",
-    "acd": "Gikyode",
-    "ace": "Aceh",
-    "acf": "Lesser Antillean French Creole",
-    "ach": "Acholi",
-    "acn": "Achang",
-    "acr": "Achi",
-    "acu": "Achuar-Shiwiar",
-    "ade": "Adele",
-    "adj": "Adioukrou",
-    "agd": "Agarabi",
-    "agn": "Agutaynen",
-    "agr": "Aguaruna",
-    "agu": "Aguacateco",
-    "agx": "Aghul",
-    "ahs": "Ashe",
-    "aia": "Arosi",
-    "akb": "Batak Angkola",
-    "alp": "Alune",
-    "amh": "Amharic",
-    "ara": "Arabic",
-    "azb": "South Azerbaijani",
-    "bba": "Baatonum",
-    "bbc": "Batak Toba",
-    "bcl": "Bikol Central",
-    "bfa": "Bari",
-    "blt": "Tai Dam",
-    "bqc": "Boko",
-    "bqp": "Busa",
-    "bru": "Eastern Bru",
-    "bss": "Akoose",
-    "bul": "Bulgarian",
-    "byr": "Baruya",
-    "cce": "Chopi",
-    "ces": "Czech",
-    "deu": "German",
-    "eng": "English",
-    "fin": "Finnish",
-    "fra": "French",
-    "heb": "Hebrew",
-    "hin": "Hindi",
-    "hun": "Hungarian",
-    "ind": "Indonesian",
-    "ita": "Italian",
-    "jpn": "Japanese",
-    "kor": "Korean",
-    "nld": "Dutch",
-    "pol": "Polish",
-    "por": "Portuguese",
-    "ron": "Romanian",
-    "rus": "Russian",
-    "spa": "Spanish",
-    "swe": "Swedish",
-    "tha": "Thai",
-    "tur": "Turkish",
-    "ukr": "Ukrainian",
-    "vie": "Vietnamese",
-    "zho": "Chinese"
+# Simple language names to ISO codes (for speech-to-text)
+LANGUAGE_TO_ISO = {
+    "french": "fr",
+    "english": "en",
+    "spanish": "es",
+    "german": "de",
+    "italian": "it",
+    "portuguese": "pt",
+    "dutch": "nl",
+    "polish": "pl",
+    "russian": "ru",
+    "chinese": "zh",
+    "japanese": "ja",
+    "korean": "ko"
 }
 
-# Common languages with their codes (subset of most used languages)
-COMMON_LANGUAGES: Dict[str, str] = {
-    "french": "fra",
-    "english": "eng",
-    "spanish": "spa",
-    "german": "deu",
-    "italian": "ita",
-    "portuguese": "por",
-    "polish": "pol",
-    "turkish": "tur",
-    "russian": "rus",
-    "dutch": "nld",
-    "czech": "ces",
-    "arabic": "ara",
-    "chinese": "zho",
-    "japanese": "jpn",
-    "korean": "kor",
-    "vietnamese": "vie",
-    "thai": "tha",
-    "hebrew": "heb",
-    "hindi": "hin",
-    "indonesian": "ind",
-    "romanian": "ron",
-    "bulgarian": "bul",
-    "ukrainian": "ukr",
-    "swedish": "swe",
-    "finnish": "fin",
-    "hungarian": "hun"
+# Simple language names to BCP-47 codes (for text-to-speech)
+LANGUAGE_TO_BCP47 = {
+    "french": "fr-FR",
+    "english": "en-US",
+    "spanish": "es-ES",
+    "german": "de-DE",
+    "italian": "it-IT",
+    "portuguese": "pt-PT",
+    "dutch": "nl-NL",
+    "polish": "pl-PL",
+    "russian": "ru-RU",
+    "chinese": "zh-CN",
+    "japanese": "ja-JP",
+    "korean": "ko-KR"
 }
 
-def get_language_name(code: str) -> str:
-    """Get the full language name from its ISO code."""
-    return LANGUAGE_CODES.get(code, code)
+# Voice mappings for each supported BCP-47 language
+TTS_VOICES = {
+    "fr-FR": "fr-FR-Studio-D",
+    "en-US": "en-US-Studio-M",
+    "es-ES": "es-ES-Studio-B",
+    "de-DE": "de-DE-Studio-B",
+    "it-IT": "it-IT-Studio-B",
+    "pt-PT": "pt-PT-Studio-B",
+    "nl-NL": "nl-NL-Standard-B",
+    "pl-PL": "pl-PL-Standard-B",
+    "ru-RU": "ru-RU-Standard-B",
+    "zh-CN": "zh-CN-Standard-B",
+    "ja-JP": "ja-JP-Standard-B",
+    "ko-KR": "ko-KR-Standard-B"
+}
 
-def get_language_code(name: str) -> str:
-    """Get the ISO code from a language name."""
-    # Try common languages first (case insensitive)
-    name_lower = name.lower()
-    if name_lower in COMMON_LANGUAGES:
-        return COMMON_LANGUAGES[name_lower]
-    
-    # Try to find in full mapping (case sensitive)
-    for code, lang_name in LANGUAGE_CODES.items():
-        if lang_name == name:
-            return code
-    
-    raise ValueError(f"Language '{name}' not found in supported languages") 
+DEFAULT_LANGUAGE = "french"
+DEFAULT_BCP47 = LANGUAGE_TO_BCP47[DEFAULT_LANGUAGE] 

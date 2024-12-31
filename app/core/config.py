@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings
 import yaml
 from typing import Optional, Dict
-from app.core.languages import COMMON_LANGUAGES
+from app.core.languages import LANGUAGE_TO_ISO
 
 class Settings(BaseSettings):
    PROJECT_NAME: str = "Story Teller API"
@@ -14,6 +14,11 @@ class Settings(BaseSettings):
    GEMINI_TEMPERATURE: float = 0.7
    GEMINI_TOP_P: float = 0.8
    GEMINI_TOP_K: int = 40
+   
+   # Google Cloud Configuration
+   google_application_credentials: str
+   google_cloud_project: str
+   
    STORY_PROMPT: str = """
    You are a master storyteller for young children aged 6 years old. A child has just shared something interesting in {language}.
 
@@ -64,13 +69,6 @@ class Settings(BaseSettings):
    - Make the story flow naturally from start to finish
    - Add small actions children can copy
    """
-   
-   # MMS-TTS Configuration
-   MMS_MODEL: str = "facebook/mms-tts-fra"
-   MMS_SAMPLE_RATE: int = 16000
-   
-   # Language codes mapping for MMS-TTS
-   LANGUAGE_TO_MMS_CODE: Dict[str, str] = COMMON_LANGUAGES
    
    AUDIO_DEVICE_INDEX: Optional[int] = 7
 

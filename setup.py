@@ -12,6 +12,12 @@ setup(
         "pydantic-settings==2.6.0",
         "pyyaml==6.0.2",
         
+        # Google Cloud
+        "google-cloud-texttospeech>=2.15.0",
+        "google-cloud-core>=2.3.3",
+        "google-api-core>=2.15.0",
+        "google-auth>=2.27.0",
+        
         # Audio processing
         "pyaudio==0.2.14",
         "soundfile==0.12.1",
@@ -21,7 +27,7 @@ setup(
         # HTTP client
         "aiohttp==3.11.11",
         
-        # Base ML dependencies
+        # ML dependencies
         "numpy>=1.24.3",
         "transformers>=4.38.0",
         "datasets>=2.18.0",

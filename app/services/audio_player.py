@@ -11,7 +11,7 @@ async def play_audio(audio_data: bytes):
     # Open stream
     stream = p.open(format=pyaudio.paInt16,
                     channels=1,
-                    rate=settings.MMS_SAMPLE_RATE,
+                    rate=settings.TTS_SAMPLE_RATE,
                     output=True)
     
     # Play audio
