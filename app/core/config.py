@@ -7,7 +7,7 @@ class Settings(BaseSettings):
    PROJECT_NAME: str = "Story Teller API"
    VERSION: str = "0.1.0"
    API_V1_STR: str = "/api/v1"
-   WHISPER_MODEL: str = "openai/whisper-tiny"
+   WHISPER_MODEL: str = "openai/whisper-medium"
    GEMINI_API_KEY: str
    GEMINI_MODEL: str = "gemini-2.0-flash-exp"
    GEMINI_MAX_OUTPUT_TOKENS: int = 2048

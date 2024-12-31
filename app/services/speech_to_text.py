@@ -3,7 +3,7 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from pydantic import BaseModel, validator
 from app.core.config import settings
 from app.core.languages import LANGUAGE_TO_ISO, DEFAULT_LANGUAGE
-from typing import Dict
+from typing import Dict, Optional
 
 class AudioInput(BaseModel):
     array: list
@@ -20,11 +20,25 @@ class AudioInput(BaseModel):
 
 class SpeechToTextService:
     def __init__(self):
-        self.processor = WhisperProcessor.from_pretrained("openai/whisper-medium")
-        self.model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-medium")
-        self.model.config.forced_decoder_ids = None
+        self.processor: Optional[WhisperProcessor] = None
+        self.model: Optional[WhisperForConditionalGeneration] = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+    def initialize(self):
+        """Initialize the Whisper model and processor. Call this at application startup."""
+        if self.processor is not None:
+            return  # Already initialized
+            
+        print(f"Initializing Whisper model {settings.WHISPER_MODEL} on {self.device}")
+        self.processor = WhisperProcessor.from_pretrained(settings.WHISPER_MODEL)
+        self.model = WhisperForConditionalGeneration.from_pretrained(settings.WHISPER_MODEL)
+        self.model.to(self.device)
+        print("Whisper model initialized successfully")
 
     async def transcribe(self, audio: AudioInput) -> str:
+        if self.processor is None or self.model is None:
+            raise RuntimeError("SpeechToTextService not initialized. Call initialize() first.")
+            
         if not audio.array or len(audio.array) == 0:
             raise ValueError("Empty audio input received. Please provide valid audio data.")
             
@@ -37,7 +51,7 @@ class SpeechToTextService:
             audio.array, 
             sampling_rate=audio.sampling_rate, 
             return_tensors="pt"
-        ).input_features
+        ).input_features.to(self.device)
 
         # Create attention mask
         attention_mask = torch.ones_like(input_features)
