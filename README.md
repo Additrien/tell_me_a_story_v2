@@ -18,7 +18,13 @@ This project is a FastAPI-based application that generates stories for children 
 
 3. Install dependencies:
    ```
-   pip install -r requirements.txt
+   # Install in development mode
+   pip install -e .
+   ```
+
+4. If you encounter issues with transformers version after installation, run:
+   ```
+   pip install --upgrade transformers==4.46.1
    ```
 
 ## PyAudio Installation Issues

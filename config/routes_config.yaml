@@ -1,0 +1,53 @@
+routes:
+  - path: /record
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.record.record_audio
+    tags: 
+      - audio
+
+  - path: /transcribe
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.transcribe.transcribe_audio
+    tags:
+      - audio
+      - text
+
+  - path: /generate-story
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.story.generate_story
+    tags:
+      - story
+
+  - path: /text-to-speech
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.tts.text_to_speech
+    tags:
+      - audio
+      - speech
+
+  - path: /full-process
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.full_process.process_audio_to_story
+    tags:
+      - story
+      - audio
+
+  - path: /start-recording
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.record.start_recording
+    tags: 
+      - audio
+
+  - path: /stop-recording
+    method: POST
+    enabled: true
+    handler: app.api.endpoints.record.stop_recording
+    tags: 
+      - audio
+      - story
