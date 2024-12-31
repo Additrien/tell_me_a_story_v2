@@ -1,43 +1,72 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from app.services.audio_recorder import audio_recorder, cleanup_audio_file
 from app.services.speech_to_text import speech_to_text_service, AudioInput
-from app.services.llm_service import generate_story
-from app.services.text_to_speech import text_to_speech_service
-from app.services.audio_player import play_audio
+from app.api.websockets import story_ws
 from app.services.conversation_manager import conversation_manager
-from app.core.config import routes_config
 import soundfile as sf
 import librosa
-import numpy as np
+import uuid
+from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/audio-devices")
-async def list_audio_devices():
-    devices = audio_recorder.list_input_devices()
-    return {"devices": devices}
+@router.websocket("/ws/story/{client_id}")
+async def websocket_story_endpoint(websocket: WebSocket, client_id: str):
+    await story_ws.connect(websocket, client_id)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            
+            if data["type"] == "transcription":
+                await story_ws.stream_story(
+                    websocket,
+                    transcription=data["text"],
+                    language=data.get("language", "french")
+                )
+    except WebSocketDisconnect:
+        story_ws.disconnect(client_id)
+    except Exception as e:
+        print(f"Error in WebSocket connection: {str(e)}")
+        story_ws.disconnect(client_id)
+
+@router.get("/stories")
+async def get_story_history(limit: int = Query(default=5, ge=1, le=20)):
+    """Get recent story history"""
+    stories = conversation_manager.get_recent_stories(limit)
+    return [{
+        "transcription": story.transcription,
+        "story": story.story,
+        "language": story.language,
+        "timestamp": story.timestamp.isoformat()
+    } for story in stories]
+
+@router.post("/stories/clear")
+async def clear_story_history():
+    """Clear story history"""
+    conversation_manager.clear_history()
+    return {"message": "Story history cleared"}
 
 @router.post("/start-recording")
-async def start_recording(language: str = Query(default="french", description="Language code (e.g. 'french', 'english')")):
-    audio_recorder.start_recording(language)
-    return {"message": "Recording started", "language": language}
+async def start_recording_post(language: str = Query(default="french")):
+    try:
+        audio_recorder.start_recording(language)
+        return {"status": "recording_started"}
+    except Exception as e:
+        print(f"Error in start_recording: {str(e)}")
+        raise
 
 @router.post("/stop-recording")
-async def stop_recording():
+async def stop_recording_post(request: Request, language: str = Query(default="french")):
     audio_file = None
     try:
         audio_file, language = audio_recorder.stop_recording()
         
-        # Read the audio file
         audio_data, sample_rate = sf.read(audio_file)
-        
         if len(audio_data) == 0:
             raise HTTPException(status_code=400, detail="Recorded audio file is empty")
             
-        # Print some debug info
         print(f"USER INPUT: Audio length: {len(audio_data)} samples, Sample rate: {sample_rate}")
         
-        # Resample to 16kHz for Whisper
         resampled_audio = librosa.resample(audio_data, orig_sr=sample_rate, target_sr=16000)
         
         audio_input = AudioInput(
@@ -52,19 +81,16 @@ async def stop_recording():
             
         print(f"TRANSCRIPTION: {transcription}")
         
-        story_text = await generate_story(transcription, language)
-        audio_output = await text_to_speech_service.convert_text_to_speech(story_text, language)
-        await play_audio(audio_output)
-        return {"message": "Story processed and played successfully", "transcription": transcription, "story": story_text}
+        client_id = str(uuid.uuid4())
+        return {
+            "transcription": transcription,
+            "client_id": client_id,
+            "websocket_url": f"/api/v1/ws/story/{client_id}"
+        }
+
     except Exception as e:
         print(f"Error in stop_recording: {str(e)}")
         raise
     finally:
-        if audio_file:  # Only cleanup if audio_file was created
+        if audio_file:
             await cleanup_audio_file(audio_file)
-
-@router.post("/reset-conversation")
-async def reset_conversation():
-    """Reset the conversation history to start fresh"""
-    conversation_manager.clear_history()
-    return {"message": "Conversation history cleared"}

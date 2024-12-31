@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Story Teller WebSocket Test</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        #story-text {
+            white-space: pre-wrap;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            min-height: 100px;
+        }
+        #status {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: red;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+        }
+        audio {
+            width: 100%;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Story Teller WebSocket Test</h1>
+    
+    <div>
+        <h3>1. Record Audio</h3>
+        <button onclick="startRecording()">Start Recording</button>
+        <button onclick="stopRecording()">Stop Recording</button>
+    </div>
+
+    <div>
+        <h3>2. Story Generation</h3>
+        <div id="status">Not connected</div>
+        <div id="story-text"></div>
+    </div>
+
+    <div>
+        <h3>3. Audio Playback</h3>
+        <audio id="audio-player" controls></audio>
+    </div>
+
+    <script>
+        let ws = null;
+        let audioChunks = [];
+        let mediaRecorder = null;
+        let mediaStream = null;
+        
+        async function startRecording() {
+            // Reset state
+            document.getElementById('story-text').textContent = '';
+            document.getElementById('audio-player').src = '';
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            
+            try {
+                // Call the start-recording endpoint
+                const response = await fetch('/api/v1/start-recording?language=french', {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+                
+                // Start browser recording
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(mediaStream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+                mediaRecorder.start(1000);
+                document.getElementById('status').textContent = 'Recording...';
+            } catch (err) {
+                console.error('Recording error:', err);
+                document.getElementById('status').textContent = 'Error: ' + err.message;
+                
+                // Cleanup on error
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+                mediaRecorder = null;
+                audioChunks = [];
+            }
+        }
+
+        async function stopRecording() {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                document.getElementById('status').textContent = 'No recording in progress';
+                return;
+            }
+            
+            return new Promise(resolve => {
+                // Request any final chunks of data
+                mediaRecorder.requestData();
+                
+                mediaRecorder.onstop = async () => {
+                    if (!audioChunks.length) {
+                        document.getElementById('status').textContent = 'Error: No audio data recorded';
+                        resolve();
+                        return;
+                    }
+                    
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob);
+                    
+                    try {
+                        const response = await fetch('/api/v1/stop-recording?language=french', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!response.ok) {
+                            const error = await response.text();
+                            throw new Error(error);
+                        }
+                        
+                        const data = await response.json();
+                        if (!data.client_id) {
+                            throw new Error('No client ID received from server');
+                        }
+                        
+                        connectWebSocket(data.client_id, data.transcription);
+                        document.getElementById('status').textContent = 'Processing transcription...';
+                    } catch (err) {
+                        console.error('Error sending audio:', err);
+                        document.getElementById('status').textContent = 'Error: ' + err.message;
+                    }
+                    
+                    // Cleanup
+                    if (mediaStream) {
+                        mediaStream.getTracks().forEach(track => track.stop());
+                        mediaStream = null;
+                    }
+                    mediaRecorder = null;
+                    audioChunks = [];
+                    resolve();
+                };
+                
+                mediaRecorder.stop();
+            });
+        }
+
+        function connectWebSocket(clientId, transcription) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/story/${clientId}`;
+            
+            if (ws) {
+                ws.close();
+            }
+            ws = new WebSocket(wsUrl);
+            let audioQueue = [];
+            let isPlaying = false;
+
+            ws.onopen = () => {
+                document.getElementById('status').textContent = 'WebSocket connected';
+                // Send transcription request
+                ws.send(JSON.stringify({
+                    type: 'transcription',
+                    text: transcription,
+                    language: 'french'
+                }));
+            };
+
+            ws.onmessage = async (event) => {
+                try {
+                    if (event.data instanceof Blob) {
+                        // Handle audio data
+                        audioQueue.push(event.data);
+                        if (!isPlaying) {
+                            playNextAudio();
+                        }
+                    } else {
+                        // Handle JSON messages
+                        const message = JSON.parse(event.data);
+                        if (!message.type) {
+                            throw new Error('Invalid message format: missing type');
+                        }
+                        
+                        switch (message.type) {
+                            case 'text':
+                                if (!message.content) break;
+                                const storyText = document.getElementById('story-text');
+                                storyText.textContent += message.content;
+                                break;
+                            case 'status':
+                                if (message.message) {
+                                    document.getElementById('status').textContent = message.message;
+                                }
+                                break;
+                            case 'error':
+                                document.getElementById('status').textContent = 'Error: ' + (message.message || 'Unknown error');
+                                break;
+                            default:
+                                console.warn('Unknown message type:', message.type);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error handling WebSocket message:', err);
+                    document.getElementById('status').textContent = 'Error: Failed to process server message';
+                }
+            };
+
+            async function playNextAudio() {
+                if (audioQueue.length === 0) {
+                    isPlaying = false;
+                    return;
+                }
+                
+                isPlaying = true;
+                const audioBlob = audioQueue.shift();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = document.getElementById('audio-player');
+                
+                audio.src = audioUrl;
+                await audio.play();
+                
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    playNextAudio();
+                };
+            }
+
+            ws.onerror = (error) => {
+                document.getElementById('status').textContent = 'WebSocket error: ' + error;
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').textContent = 'WebSocket disconnected';
+            };
+        }
+
+        // Check browser compatibility on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('status').textContent = 'Warning: Your browser does not support audio recording. Please use a modern browser.';
+                document.querySelector('button[onclick="startRecording()"]').disabled = true;
+                document.querySelector('button[onclick="stopRecording()"]').disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>

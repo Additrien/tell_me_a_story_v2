@@ -1,5 +1,6 @@
 from google.cloud import texttospeech
 import io
+from typing import AsyncGenerator
 from app.core.languages import LANGUAGE_TO_BCP47, TTS_VOICES, DEFAULT_BCP47
 
 class TextToSpeechService:
@@ -31,11 +32,10 @@ class TextToSpeechService:
             
         return chunks
 
-    async def convert_text_to_speech(self, text: str, language: str = DEFAULT_LANGUAGE) -> bytes:
+    async def convert_text_to_speech(self, text: str, language: str = DEFAULT_LANGUAGE) -> AsyncGenerator[bytes, None]:
         try:
             language_code = self._get_language_code(language)
             chunks = self._chunk_text(text)
-            audio_chunks = []
 
             for chunk in chunks:
                 input_text = texttospeech.SynthesisInput(text=chunk)
@@ -56,9 +56,7 @@ class TextToSpeechService:
                     audio_config=audio_config
                 )
                 
-                audio_chunks.append(response.audio_content)
-
-            return b''.join(audio_chunks)
+                yield response.audio_content
             
         except Exception as e:
             raise ValueError(f"Error generating speech for language {language}: {str(e)}")

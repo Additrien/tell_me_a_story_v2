@@ -1,43 +1,34 @@
-from typing import List, Dict, Optional
+from typing import List
 from dataclasses import dataclass
 from datetime import datetime
 
 @dataclass
-class ConversationTurn:
-    user_input: str
-    llm_response: str
-    timestamp: datetime
+class StoryTurn:
+    transcription: str
+    story: str
     language: str
+    timestamp: datetime
 
 class ConversationManager:
     def __init__(self):
-        self.history: List[ConversationTurn] = []
+        self.history: List[StoryTurn] = []
         
-    def add_turn(self, user_input: str, llm_response: str, language: str) -> None:
-        turn = ConversationTurn(
-            user_input=user_input,
-            llm_response=llm_response,
-            timestamp=datetime.now(),
-            language=language
+    def add_story(self, transcription: str, story: str, language: str) -> None:
+        """Add a new story to the history"""
+        turn = StoryTurn(
+            transcription=transcription,
+            story=story,
+            language=language,
+            timestamp=datetime.now()
         )
         self.history.append(turn)
         
-    def get_formatted_history(self, max_turns: int = 3) -> str:
-        """Formats the last conversation turns for LLM context"""
-        if not self.history:
-            return ""
-            
-        recent_history = self.history[-max_turns:]
-        formatted = "\nPREVIOUS CONVERSATION CONTEXT:\n"
+    def get_recent_stories(self, limit: int = 5) -> List[StoryTurn]:
+        """Get the most recent stories"""
+        return sorted(self.history, key=lambda x: x.timestamp, reverse=True)[:limit]
         
-        for turn in recent_history:
-            formatted += f"Child: {turn.user_input}\n"
-            formatted += f"Story: {turn.llm_response}\n"
-            
-        return formatted
-    
     def clear_history(self) -> None:
-        """Clears the conversation history"""
+        """Clear the story history"""
         self.history = []
 
-conversation_manager = ConversationManager() 
+conversation_manager = ConversationManager()
