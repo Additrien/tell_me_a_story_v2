@@ -4,6 +4,7 @@ from app.services.speech_to_text import speech_to_text_service, AudioInput
 from app.services.llm_service import generate_story
 from app.services.text_to_speech import text_to_speech_service
 from app.services.audio_player import play_audio
+from app.services.conversation_manager import conversation_manager
 from app.core.config import routes_config
 import soundfile as sf
 import librosa
@@ -61,3 +62,9 @@ async def stop_recording():
     finally:
         if audio_file:  # Only cleanup if audio_file was created
             await cleanup_audio_file(audio_file)
+
+@router.post("/reset-conversation")
+async def reset_conversation():
+    """Reset the conversation history to start fresh"""
+    conversation_manager.clear_history()
+    return {"message": "Conversation history cleared"}

@@ -15,12 +15,18 @@ class Settings(BaseSettings):
    GEMINI_TOP_P: float = 0.8
    GEMINI_TOP_K: int = 40
    
+   # Audio Configuration
+   AUDIO_DEVICE_INDEX: Optional[int] = 7
+   TTS_SAMPLE_RATE: int = 16000  # Sample rate for Text-to-Speech output
+   
    # Google Cloud Configuration
    google_application_credentials: str
    google_cloud_project: str
    
    STORY_PROMPT: str = """
    You are a master storyteller for young children aged 6 years old. A child has just shared something interesting in {language}.
+
+   {conversation_history}
 
    LANGUAGE INSTRUCTION:
    You MUST write your response in {language}.
@@ -70,8 +76,6 @@ class Settings(BaseSettings):
    - Add small actions children can copy
    """
    
-   AUDIO_DEVICE_INDEX: Optional[int] = 7
-
    class Config:
       env_file = ".env"
 

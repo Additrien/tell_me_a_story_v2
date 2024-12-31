@@ -1,11 +1,17 @@
 import aiohttp
 from app.core.config import settings
+from app.services.conversation_manager import conversation_manager
 
 async def generate_story(user_input: str, language: str = "french") -> str:
     try:
         print("USER INPUT: ", user_input)
-        prompt = settings.STORY_PROMPT.format(user_input=user_input, language=language)
-        print("API KEY: ", settings.GEMINI_API_KEY)
+        conversation_history = conversation_manager.get_formatted_history()
+        prompt = settings.STORY_PROMPT.format(
+            user_input=user_input,
+            language=language,
+            conversation_history=conversation_history
+        )
+        print("prompt: ", prompt)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
         
         async with aiohttp.ClientSession() as session:
@@ -28,7 +34,9 @@ async def generate_story(user_input: str, language: str = "french") -> str:
                     
                 data = await response.json()
                 print("LLM RESPONSE: ", data)
-                return data["candidates"][0]["content"]["parts"][0]["text"]
+                story = data["candidates"][0]["content"]["parts"][0]["text"]
+                conversation_manager.add_turn(user_input, story, language)
+                return story
     except Exception as e:
         print(f"Error generating story: {str(e)}")
         raise
