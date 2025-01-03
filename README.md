@@ -1,138 +1,167 @@
 # Story Teller API
 
-This project is a FastAPI-based application that generates interactive stories for children based on voice input. It uses advanced AI models for speech recognition, story generation, and text-to-speech synthesis.
+An AI-powered storytelling API that generates engaging stories for young children using different LLM (Language Model) providers.
 
 ## Features
-- Voice recording through microphone
-- Speech-to-text transcription using Whisper
-- Story generation using Gemini Pro
-- Text-to-speech synthesis using Google Cloud TTS
-- Support for multiple languages (English, French, Spanish, and more)
-- WebSocket support for real-time story streaming
-- Interactive web interface for testing
 
-## Prerequisites
+- Story generation using multiple LLM providers:
+  - Gemini (cloud-based)
+  - Local LLaMA (runs locally)
+- Multi-language support (English, French, Spanish)
+- Streaming responses for real-time story generation
+- Speech-to-text input support
+- Text-to-speech output support
+- WebSocket interface for real-time interactions
 
-- Python 3.10 or higher
-- Google Cloud account with Text-to-Speech API enabled
-- Google Gemini API key
-- PyAudio and its system dependencies
-
-## Setup
+## Installation
 
 1. Clone the repository:
-   git clone https://github.com/Additrien/tell_me_a_story_v2
-   cd tell_me_a_story_v2
+```bash
+git clone <repository-url>
+cd story-teller-api
+```
 
-2. Create a virtual environment:
-   python3 -m venv venv
-   source venv/bin/activate  # Linux/macOS
-   # or
-   .\venv\Scripts\activate  # Windows
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+.\venv\Scripts\activate  # Windows
+```
 
 3. Install dependencies:
-   pip install -e .
+```bash
+pip install -r requirements.txt
+```
 
-   For CUDA support (optional):
-   pip install -e ".[cuda]"
+4. Create a `.env` file with your configuration:
+```env
+GEMINI_API_KEY=your_gemini_api_key
+google_application_credentials=path/to/your/credentials.json
+google_cloud_project=your-project-id
+```
 
 ## Configuration
 
-1. Create a .env file in the root directory:
-   GEMINI_API_KEY=your_api_key_here
-   AUDIO_DEVICE_INDEX=optional_device_index
-   GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/google-credentials.json
-   GOOGLE_CLOUD_PROJECT=your-project-id
+### LLM Service Selection
 
-2. Set up Google Cloud credentials:
-   - Create a service account in Google Cloud Console
-   - Download the JSON credentials file
-   - Set GOOGLE_APPLICATION_CREDENTIALS to point to this file
+You have three ways to choose which LLM service to use, in order of priority:
 
-## Audio Setup
+1. Command-line argument (highest priority):
+```bash
+python main.py --llm local  # Use local LLaMA
+# or
+python main.py --llm gemini  # Use Gemini
+```
 
-### System Dependencies
+2. Environment variable (medium priority):
+```bash
+export LLM_SERVICE=local  # Linux/Mac
+# or
+set LLM_SERVICE=local  # Windows
+python main.py
+```
 
-Linux (Ubuntu/Debian):
-sudo apt-get update
-sudo apt-get install portaudio19-dev python3-pyaudio libasound-dev
+3. Configuration file (lowest priority):
+Add to your `.env` file:
+```env
+LLM_SERVICE=local  # or gemini
+```
 
-macOS:
-brew install portaudio
+### Available LLM Services
 
-Windows:
-- PyAudio wheel should install automatically
-- If not, install Visual C++ Build Tools and try again
+1. Gemini (Default)
+   - Cloud-based solution
+   - Requires GEMINI_API_KEY in .env
+   - Lower resource usage
+   - Internet connection required
 
-### Audio Device Configuration
+2. Local LLaMA
+   - Runs completely locally
+   - Higher resource usage
+   - Requires GPU for optimal performance
+   - No internet connection needed
+   - Uses 4-bit quantization for efficient memory usage
 
-1. List available audio devices:
-   python -m app.utils.list_audio_devices
-
-2. Set the device index in your .env file:
-   AUDIO_DEVICE_INDEX=your_device_index
-
-## Running the Application
+## Usage
 
 1. Start the server:
-   python main.py
+```bash
+python main.py
+```
 
-2. Access the web interface:
-   - Open http://localhost:8000/test in your browser
-   - Use the interface to record audio and generate stories
+2. The API will be available at `http://localhost:8000`
 
-## API Endpoints
+3. API Endpoints:
+   - `/api/v1/story/generate` - Generate a story
+   - `/api/v1/story/stream` - Stream a story in real-time
+   - `/test` - WebSocket test interface
 
-### WebSocket
-- ws://localhost:8000/api/v1/ws/story/{client_id}
-  - Real-time story generation and audio streaming
+## API Documentation
 
-### REST API
-- POST /api/v1/start-recording?language={lang}: Start audio recording
-- POST /api/v1/stop-recording: Stop recording and process story
-- GET /api/v1/stories: Get recent story history
-- POST /api/v1/stories/clear: Clear story history
-
-## Supported Languages
-
-- English (en-US)
-- French (fr-FR)
-- Spanish (es-ES)
-- German (de-DE)
-- Italian (it-IT)
-- Portuguese (pt-PT)
-- Dutch (nl-NL)
-- Polish (pl-PL)
-- Russian (ru-RU)
-- Chinese (zh-CN)
-- Japanese (ja-JP)
-- Korean (ko-KR)
+Once the server is running, visit:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
 ## Development
 
-1. Install development dependencies:
-   pip install -e ".[dev]"
+### Project Structure
+```
+app/
+├── api/
+│   ├── routes.py
+│   └── websockets.py
+├── core/
+│   ├── config.py
+│   └── languages.py
+├── services/
+│   ├── llm_service.py          # Base LLM interface
+│   ├── gemini_llm_service.py   # Gemini implementation
+│   ├── local_llm_service.py    # Local LLaMA implementation
+│   ├── speech_to_text.py
+│   ├── text_to_speech.py
+│   └── conversation_manager.py
+└── static/
+    └── websocket_test.html
+```
 
-2. Run tests:
-   pytest
+### Adding New LLM Services
 
-## Troubleshooting
+1. Create a new service file in `app/services/`
+2. Implement the `BaseLLMService` interface
+3. Add the service to `LLMServiceFactory` in `llm_service.py`
+4. Update the CLI choices and config type hints
 
-1. Audio Recording Issues:
-   - Check microphone permissions
-   - Verify correct audio device index
-   - Ensure minimum recording length (0.5 seconds)
+## Requirements
 
-2. Google Cloud Issues:
-   - Verify credentials file path
-   - Check API enablement in Google Cloud Console
-   - Ensure project has billing enabled
-
-3. WebSocket Connection:
-   - Check browser console for connection errors
-   - Verify WebSocket URL matches server address
-   - Ensure client ID is valid
+- Python 3.10+
+- For local LLaMA:
+  - CUDA-capable GPU (recommended)
+  - 8GB+ RAM
+- For Gemini:
+  - Internet connection
+  - Valid API key
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License
+
+Copyright (c) 2024
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

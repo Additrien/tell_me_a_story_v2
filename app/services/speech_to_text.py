@@ -30,9 +30,15 @@ class SpeechToTextService:
             return  # Already initialized
             
         print(f"Initializing Whisper model {settings.WHISPER_MODEL} on {self.device}")
+        
         self.processor = WhisperProcessor.from_pretrained(settings.WHISPER_MODEL)
-        self.model = WhisperForConditionalGeneration.from_pretrained(settings.WHISPER_MODEL)
-        self.model.to(self.device)
+        self.model = WhisperForConditionalGeneration.from_pretrained(
+            settings.WHISPER_MODEL,
+            device_map="auto",
+            load_in_8bit=True,  # Simple 8-bit quantization
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True
+        )
         print("Whisper model initialized successfully")
 
     async def transcribe(self, audio: AudioInput) -> str:
@@ -51,7 +57,7 @@ class SpeechToTextService:
             audio.array, 
             sampling_rate=audio.sampling_rate, 
             return_tensors="pt"
-        ).input_features.to(self.device)
+        ).input_features.to(device=self.device, dtype=torch.float16)
 
         # Create attention mask
         attention_mask = torch.ones_like(input_features)

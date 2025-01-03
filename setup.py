@@ -31,6 +31,10 @@ setup(
         "numpy>=1.24.3",
         "transformers>=4.38.0",
         "datasets>=2.18.0",
+        
+        # Add these to install_requires
+        "bitsandbytes=0.45.0",
+        "accelerate>=1.2.1",
     ],
     extras_require={
         'cuda': [

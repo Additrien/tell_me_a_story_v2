@@ -58,9 +58,10 @@
         let audioChunks = [];
         let mediaRecorder = null;
         let mediaStream = null;
+        let clientId = null;  // Store the client ID
         
         async function startRecording() {
-            // Reset state
+            // Reset state except clientId
             document.getElementById('story-text').textContent = '';
             document.getElementById('audio-player').src = '';
             if (ws) {
@@ -139,7 +140,9 @@
                             throw new Error('No client ID received from server');
                         }
                         
-                        connectWebSocket(data.client_id, data.transcription);
+                        // Store or reuse client ID
+                        clientId = clientId || data.client_id;
+                        connectWebSocket(clientId, data.transcription);
                         document.getElementById('status').textContent = 'Processing transcription...';
                     } catch (err) {
                         console.error('Error sending audio:', err);

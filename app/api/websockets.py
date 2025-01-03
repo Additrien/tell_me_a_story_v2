@@ -1,7 +1,7 @@
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Optional
 import json
-from app.services.llm_service import generate_story
+from app.services.llm_service import llm_service
 from app.services.text_to_speech import text_to_speech_service
 from app.services.conversation_manager import conversation_manager
 import re
@@ -15,7 +15,8 @@ class StoryStreamingWebSocket:
         self.active_connections[client_id] = websocket
         
     def disconnect(self, client_id: str):
-        self.active_connections.pop(client_id, None)
+        if client_id in self.active_connections:
+            self.active_connections.pop(client_id)
         
     def _split_into_sentences(self, text: str) -> list[str]:
         """Split text into sentences using regex to handle various punctuation"""
@@ -37,7 +38,7 @@ class StoryStreamingWebSocket:
             })
             
             # Process story chunks
-            async for chunk in generate_story(transcription, language):
+            async for chunk in llm_service.generate_story(transcription, language):
                 # Send text chunk immediately
                 await websocket.send_json({
                     "type": "text",
@@ -86,4 +87,4 @@ class StoryStreamingWebSocket:
                 "message": str(e)
             })
             
-story_ws = StoryStreamingWebSocket() 
+story_ws = StoryStreamingWebSocket()

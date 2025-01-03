@@ -1,50 +1,47 @@
-import aiohttp
-import json
+from abc import ABC, abstractmethod
 from typing import AsyncGenerator
+from app.services.conversation_manager import conversation_manager
 from app.core.config import settings
 
-async def generate_story(user_input: str, language: str = "french", add_to_history: bool = True) -> AsyncGenerator[str, None]:
-    try:
-        print("USER INPUT: ", user_input)
-        prompt = settings.STORY_PROMPT.format(
-            user_input=user_input,
-            language=language
-        )
-        print("prompt: ", prompt)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:streamGenerateContent?alt=sse&key={settings.GEMINI_API_KEY}"
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {
-                        "maxOutputTokens": settings.GEMINI_MAX_OUTPUT_TOKENS,
-                        "temperature": settings.GEMINI_TEMPERATURE,
-                        "topP": settings.GEMINI_TOP_P,
-                        "topK": settings.GEMINI_TOP_K
-                    }
-                },
-                headers={"Content-Type": "application/json"}
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"API Error: {error_text}")
-                
-                async for line in response.content:
-                    if line:
-                        chunk = line.decode('utf-8').strip()
-                        if chunk.startswith('data: '):
-                            try:
-                                data = json.loads(chunk[6:])  # Remove 'data: ' prefix
-                                if 'candidates' in data and data['candidates']:
-                                    text = data['candidates'][0]['content']['parts'][0]['text']
-                                    yield text
-                            except json.JSONDecodeError:
-                                if chunk != 'data: [DONE]':  # Ignore end marker
-                                    print(f"Failed to parse chunk: {chunk}")
-                                continue
-                
-    except Exception as e:
-        print(f"Error generating story: {str(e)}")
-        raise
+class BaseLLMService(ABC):
+    def _get_story_prompt(self, user_input: str, language: str) -> str:
+        """Get the appropriate prompt based on conversation history"""
+        try:
+            print("DEBUG - Starting _get_story_prompt")
+            previous_stories = conversation_manager.get_recent_stories(1)
+            previous_story = previous_stories[0].story if previous_stories else None
+            print(f"DEBUG - Previous story retrieved: {previous_story is not None}")
+            
+            print("DEBUG - About to call settings.get_story_prompt")
+            prompt = settings.get_story_prompt(
+                language=language,
+                user_input=user_input,
+                previous_story=previous_story
+            )
+            print("DEBUG - Successfully got story prompt")
+            return prompt
+        except Exception as e:
+            print(f"DEBUG - Error in _get_story_prompt: {str(e)}")
+            raise
+
+    @abstractmethod
+    async def generate_story(self, user_input: str, language: str = "french") -> AsyncGenerator[str, None]:
+        """Generate a story based on user input and language.
+        This method should use _get_story_prompt to get the appropriate prompt."""
+        pass
+
+class LLMServiceFactory:
+    @staticmethod
+    def create_service(service_type: str = "gemini") -> BaseLLMService:
+        if service_type == "gemini":
+            from app.services.gemini_llm_service import GeminiLLMService
+            return GeminiLLMService()
+        elif service_type == "local":
+            from app.services.local_llm_service import LocalLLMService
+            return LocalLLMService()
+        else:
+            raise ValueError(f"Unknown LLM service type: {service_type}")
+
+# Default instance using the factory
+from app.core.config import settings
+llm_service = LLMServiceFactory.create_service(settings.DEFAULT_LLM_SERVICE)
