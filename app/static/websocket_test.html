@@ -123,6 +123,14 @@
         <h3>Story Generation</h3>
         <div id="status">Not connected</div>
         <div id="story-text"></div>
+        
+        <!-- Add interaction section -->
+        <div id="interaction-section" style="display: none; margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 4px;">
+            <h4>Story Interaction</h4>
+            <p id="interaction-prompt"></p>
+            <textarea id="interaction-input" style="width: 100%; min-height: 80px; margin: 10px 0; padding: 8px;"></textarea>
+            <button onclick="submitInteraction()">Continue Story</button>
+        </div>
     </div>
 
     <div>
@@ -410,6 +418,12 @@
                                 const storyText = document.getElementById('story-text');
                                 storyText.textContent += message.content;
                                 break;
+                            case 'interaction_request':
+                                // Show interaction section with prompts
+                                document.getElementById('interaction-section').style.display = 'block';
+                                document.getElementById('interaction-prompt').textContent = message.message;
+                                document.getElementById('status').textContent = 'Waiting for your input to continue the story...';
+                                break;
                             case 'status':
                                 if (message.message) {
                                     document.getElementById('status').textContent = message.message;
@@ -465,6 +479,29 @@
                 document.querySelector('button[onclick="stopRecording()"]').disabled = true;
             }
         });
+
+        // Add function to handle interaction submission
+        function submitInteraction() {
+            const input = document.getElementById('interaction-input').value.trim();
+            if (!input) {
+                document.getElementById('status').textContent = 'Please enter your story direction';
+                return;
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'interaction_response',
+                    content: input
+                }));
+                
+                // Hide interaction section and clear input
+                document.getElementById('interaction-section').style.display = 'none';
+                document.getElementById('interaction-input').value = '';
+                document.getElementById('status').textContent = 'Processing your story direction...';
+            } else {
+                document.getElementById('status').textContent = 'Error: WebSocket connection lost';
+            }
+        }
     </script>
 </body>
 </html>

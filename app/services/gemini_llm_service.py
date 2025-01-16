@@ -1,15 +1,16 @@
 import aiohttp
 import json
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from app.core.config import settings
 from app.services.llm_service import BaseLLMService
 
 class GeminiLLMService(BaseLLMService):
-    async def generate_story(self, user_input: str, language: str = "french") -> AsyncGenerator[str, None]:
+    async def generate_story(self, user_input: str, language: str = "french", phase: Optional[str] = None, previous_content: Optional[str] = None) -> AsyncGenerator[str, None]:
         try:
-            print("USER INPUT: ", user_input)
-            prompt = self._get_story_prompt(user_input, language)
-            print("prompt: ", prompt)
+            prompt = self._get_story_prompt(user_input, language, phase, previous_content)
+            
+            # Adjust max tokens based on phase if applicable
+            max_tokens = settings.STORY_PHASES[phase]["max_tokens"] if phase and settings.ENABLE_PHASED_GENERATION else settings.GEMINI_MAX_OUTPUT_TOKENS
             
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:streamGenerateContent?alt=sse&key={settings.GEMINI_API_KEY}"
             
@@ -19,7 +20,7 @@ class GeminiLLMService(BaseLLMService):
                     json={
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {
-                            "maxOutputTokens": settings.GEMINI_MAX_OUTPUT_TOKENS,
+                            "maxOutputTokens": max_tokens,
                             "temperature": settings.GEMINI_TEMPERATURE,
                             "topP": settings.GEMINI_TOP_P,
                             "topK": settings.GEMINI_TOP_K

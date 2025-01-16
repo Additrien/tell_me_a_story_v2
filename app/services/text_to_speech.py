@@ -2,6 +2,7 @@ from google.cloud import texttospeech
 import io
 from typing import AsyncGenerator
 from app.core.languages import LANGUAGE_TO_BCP47, TTS_VOICES, DEFAULT_BCP47
+from app.utils.text_cleanup import clean_text_for_tts
 
 class TextToSpeechService:
     DEFAULT_LANGUAGE = DEFAULT_BCP47
@@ -34,6 +35,9 @@ class TextToSpeechService:
 
     async def convert_text_to_speech(self, text: str, language: str = DEFAULT_LANGUAGE) -> AsyncGenerator[bytes, None]:
         try:
+            # Clean text before processing
+            text = clean_text_for_tts(text)
+            
             language_code = self._get_language_code(language)
             chunks = self._chunk_text(text)
 

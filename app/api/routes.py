@@ -31,8 +31,12 @@ async def websocket_story_endpoint(websocket: WebSocket, client_id: str):
                 await story_ws.stream_story(
                     websocket,
                     transcription=data["text"],
-                    language=data.get("language", "french")
+                    language=data.get("language", "french"),
+                    client_id=client_id
                 )
+            elif data["type"] == "interaction_response" and story_ws.story_states.get(client_id, {}).get("awaiting_interaction"):
+                # Handle user interaction response
+                continue  # The _request_user_interaction method will handle this
     except WebSocketDisconnect:
         story_ws.disconnect(client_id)
     except Exception as e:
