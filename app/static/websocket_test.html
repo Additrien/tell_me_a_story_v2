@@ -31,25 +31,102 @@
             width: 100%;
             margin: 10px 0;
         }
+        .input-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ccc;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            margin: 0;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-button.active {
+            border-bottom: 2px solid #007bff;
+            color: #007bff;
+        }
+        .input-section {
+            display: none;
+        }
+        .input-section.active {
+            display: block;
+        }
+        .text-input-container {
+            margin: 20px 0;
+        }
+        #text-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .language-selector {
+            margin: 20px 0;
+            padding: 15px 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .language-selector select {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            min-width: 150px;
+            cursor: pointer;
+        }
+        .language-selector select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+        }
     </style>
 </head>
 <body>
     <h1>Story Teller WebSocket Test</h1>
     
-    <div>
-        <h3>1. Record Audio</h3>
+    <div class="language-selector">
+        <label for="language-select">Select Language:</label>
+        <select id="language-select" onchange="changeLanguage()">
+            <!-- Will be populated dynamically -->
+        </select>
+    </div>
+    
+    <div class="input-tabs">
+        <button class="tab-button active" onclick="switchTab('voice')">Voice Input</button>
+        <button class="tab-button" onclick="switchTab('text')">Text Input</button>
+    </div>
+
+    <div id="voice-input" class="input-section active">
+        <h3>Voice Recording</h3>
         <button onclick="startRecording()">Start Recording</button>
         <button onclick="stopRecording()">Stop Recording</button>
     </div>
 
+    <div id="text-input-section" class="input-section">
+        <h3>Text Input</h3>
+        <div class="text-input-container">
+            <textarea id="text-input" placeholder="Type your story prompt here..."></textarea>
+            <button onclick="submitText()">Submit Text</button>
+        </div>
+    </div>
+
     <div>
-        <h3>2. Story Generation</h3>
+        <h3>Story Generation</h3>
         <div id="status">Not connected</div>
         <div id="story-text"></div>
     </div>
 
     <div>
-        <h3>3. Audio Playback</h3>
+        <h3>Audio Playback</h3>
         <audio id="audio-player" controls></audio>
     </div>
 
@@ -58,7 +135,137 @@
         let audioChunks = [];
         let mediaRecorder = null;
         let mediaStream = null;
-        let clientId = null;  // Store the client ID
+        let clientId = null;
+        let currentLanguage = null;
+        
+        // Load available languages when page loads
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                document.getElementById('status').textContent = 'Loading available languages...';
+                const response = await fetch('/api/v1/languages');
+                if (!response.ok) {
+                    throw new Error('Failed to load languages');
+                }
+                
+                const data = await response.json();
+                const select = document.getElementById('language-select');
+                
+                if (!data.available_languages || !data.available_languages.length) {
+                    throw new Error('No languages available');
+                }
+                
+                // Clear any existing options
+                select.innerHTML = '';
+                
+                data.available_languages.forEach(lang => {
+                    const option = document.createElement('option');
+                    option.value = lang;
+                    option.textContent = lang.charAt(0).toUpperCase() + lang.slice(1);
+                    select.appendChild(option);
+                });
+                
+                // Set default language
+                select.value = data.default_language;
+                currentLanguage = data.default_language;
+                document.getElementById('status').textContent = `Ready - Current language: ${currentLanguage}`;
+                
+            } catch (err) {
+                console.error('Error loading languages:', err);
+                document.getElementById('status').textContent = `Error loading languages: ${err.message}`;
+                document.getElementById('language-select').disabled = true;
+            }
+        });
+        
+        async function changeLanguage() {
+            const select = document.getElementById('language-select');
+            const language = select.value;
+            const oldLanguage = currentLanguage;
+            
+            try {
+                document.getElementById('status').textContent = `Changing language to ${language}...`;
+                select.disabled = true;
+                
+                const response = await fetch('/api/v1/language', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ language })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to set language');
+                }
+                
+                currentLanguage = language;
+                document.getElementById('status').textContent = `Language changed to: ${language}`;
+                
+            } catch (err) {
+                console.error('Error changing language:', err);
+                document.getElementById('status').textContent = `Error: ${err.message}`;
+                select.value = oldLanguage;
+                currentLanguage = oldLanguage;
+            } finally {
+                select.disabled = false;
+            }
+        }
+        
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`.tab-button[onclick*="${tab}"]`).classList.add('active');
+            
+            // Update sections
+            document.querySelectorAll('.input-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            if (tab === 'voice') {
+                document.getElementById('voice-input').classList.add('active');
+            } else {
+                document.getElementById('text-input-section').classList.add('active');
+            }
+        }
+
+        async function submitText() {
+            const text = document.getElementById('text-input').value.trim();
+            if (!text) {
+                document.getElementById('status').textContent = 'Please enter some text';
+                return;
+            }
+
+            // Reset state
+            document.getElementById('story-text').textContent = '';
+            document.getElementById('audio-player').src = '';
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/text-input?language=${currentLanguage}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const data = await response.json();
+                clientId = clientId || data.client_id;
+                connectWebSocket(clientId, text);
+                document.getElementById('status').textContent = 'Processing text input...';
+            } catch (err) {
+                console.error('Error sending text:', err);
+                document.getElementById('status').textContent = 'Error: ' + err.message;
+            }
+        }
         
         async function startRecording() {
             // Reset state except clientId
@@ -70,8 +277,7 @@
             }
             
             try {
-                // Call the start-recording endpoint
-                const response = await fetch('/api/v1/start-recording?language=french', {
+                const response = await fetch(`/api/v1/start-recording?language=${currentLanguage}`, {
                     method: 'POST'
                 });
                 
@@ -110,7 +316,6 @@
             }
             
             return new Promise(resolve => {
-                // Request any final chunks of data
                 mediaRecorder.requestData();
                 
                 mediaRecorder.onstop = async () => {
@@ -125,7 +330,7 @@
                     formData.append('audio', audioBlob);
                     
                     try {
-                        const response = await fetch('/api/v1/stop-recording?language=french', {
+                        const response = await fetch(`/api/v1/stop-recording?language=${currentLanguage}`, {
                             method: 'POST',
                             body: formData
                         });
@@ -140,23 +345,23 @@
                             throw new Error('No client ID received from server');
                         }
                         
-                        // Store or reuse client ID
                         clientId = clientId || data.client_id;
                         connectWebSocket(clientId, data.transcription);
-                        document.getElementById('status').textContent = 'Processing transcription...';
+                        
+                        document.getElementById('status').textContent = 'Processing audio...';
                     } catch (err) {
-                        console.error('Error sending audio:', err);
+                        console.error('Error stopping recording:', err);
                         document.getElementById('status').textContent = 'Error: ' + err.message;
+                    } finally {
+                        // Cleanup
+                        if (mediaStream) {
+                            mediaStream.getTracks().forEach(track => track.stop());
+                            mediaStream = null;
+                        }
+                        mediaRecorder = null;
+                        audioChunks = [];
+                        resolve();
                     }
-                    
-                    // Cleanup
-                    if (mediaStream) {
-                        mediaStream.getTracks().forEach(track => track.stop());
-                        mediaStream = null;
-                    }
-                    mediaRecorder = null;
-                    audioChunks = [];
-                    resolve();
                 };
                 
                 mediaRecorder.stop();
@@ -176,11 +381,11 @@
 
             ws.onopen = () => {
                 document.getElementById('status').textContent = 'WebSocket connected';
-                // Send transcription request
+                // Send transcription request with current language
                 ws.send(JSON.stringify({
                     type: 'transcription',
                     text: transcription,
-                    language: 'french'
+                    language: currentLanguage
                 }));
             };
 

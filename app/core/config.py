@@ -7,11 +7,24 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
     
+    # Input Method Configuration
+    ENABLED_INPUT_METHODS: list[Literal["voice", "text"]] = ["voice", "text"]
+    
     # LLM Service Configuration
-    DEFAULT_LLM_SERVICE: Literal["gemini", "local"] = os.getenv("LLM_SERVICE", "gemini")
+    DEFAULT_LLM_SERVICE: Literal["gemini", "local", "openrouter"] = os.getenv("LLM_SERVICE", "gemini")
     
     # Hugging Face Configuration
     HUGGINGFACE_TOKEN: str = os.getenv("HUGGINGFACE_TOKEN", "")
+    
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY: str
+    OPENROUTER_MODEL: str = "anthropic/claude-3-opus-20240229"
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_MAX_TOKENS: int = 2048
+    OPENROUTER_TEMPERATURE: float = 0.7
+    OPENROUTER_TOP_P: float = 0.8
+    OPENROUTER_FREQUENCY_PENALTY: float = 0.0
+    OPENROUTER_PRESENCE_PENALTY: float = 0.0
     
     # Whisper Configuration
     WHISPER_MODEL: str = "openai/whisper-small"

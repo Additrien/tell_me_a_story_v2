@@ -33,7 +33,7 @@ if __name__ == "__main__":
     import uvicorn
     
     parser = argparse.ArgumentParser(description='Run the Story Teller API')
-    parser.add_argument('--llm', type=str, choices=['gemini', 'local'], 
+    parser.add_argument('--llm', type=str, choices=['gemini', 'local', 'openrouter'], 
                        help='LLM service to use (overrides config setting)')
     args = parser.parse_args()
     

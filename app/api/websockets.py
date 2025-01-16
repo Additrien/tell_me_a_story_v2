@@ -4,6 +4,7 @@ import json
 from app.services.llm_service import llm_service
 from app.services.text_to_speech import text_to_speech_service
 from app.services.conversation_manager import conversation_manager
+from app.core.language_manager import language_manager
 import re
 
 class StoryStreamingWebSocket:
@@ -24,17 +25,19 @@ class StoryStreamingWebSocket:
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!)\s', text)
         return [s.strip() for s in sentences if s.strip()]
         
-    async def stream_story(self, websocket: WebSocket, transcription: str, language: str):
+    async def stream_story(self, websocket: WebSocket, transcription: str, language: str = None):
         """Stream story generation and audio through WebSocket"""
         try:
+            language = language or language_manager.current_language
             sentence_buffer = ""
             complete_story = ""
             
-            # Send initial message
+            # Send initial message with language
             await websocket.send_json({
                 "type": "status",
                 "status": "started",
-                "message": "Starting story generation"
+                "message": "Starting story generation",
+                "language": language
             })
             
             # Process story chunks

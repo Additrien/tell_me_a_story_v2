@@ -39,6 +39,9 @@ class LLMServiceFactory:
         elif service_type == "local":
             from app.services.local_llm_service import LocalLLMService
             return LocalLLMService()
+        elif service_type == "openrouter":
+            from app.services.openrouter_llm_service import OpenRouterService
+            return OpenRouterService()
         else:
             raise ValueError(f"Unknown LLM service type: {service_type}")
 
