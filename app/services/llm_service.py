@@ -57,6 +57,7 @@ class BaseLLMService(ABC):
 class LLMServiceFactory:
     @staticmethod
     def create_service(service_type: str = "gemini") -> BaseLLMService:
+        print(f"Creating LLM service of type: {service_type}")
         if service_type == "gemini":
             from app.services.gemini_llm_service import GeminiLLMService
             return GeminiLLMService()
@@ -71,4 +72,4 @@ class LLMServiceFactory:
 
 # Default instance using the factory
 from app.core.config import settings
-llm_service = LLMServiceFactory.create_service(settings.DEFAULT_LLM_SERVICE)
+llm_service = LLMServiceFactory.create_service(settings.LLM_SERVICE)

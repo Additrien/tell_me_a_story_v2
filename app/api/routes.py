@@ -4,6 +4,7 @@ from app.services.speech_to_text import speech_to_text_service, AudioInput
 from app.api.websockets import story_ws
 from app.services.conversation_manager import conversation_manager
 from app.core.config import settings
+from app.services.tts_factory import tts_factory
 import soundfile as sf
 import librosa
 import uuid
@@ -146,3 +147,10 @@ async def set_language(language: str = Body(..., embed=True)):
         )
     language_manager.set_language(language)
     return {"language": language}
+
+@router.post("/reload-config")
+async def reload_config():
+    """Reload configuration and reset services"""
+    settings.Config.env_file = ".env"
+    tts_factory.reset()
+    return {"message": "Configuration reloaded and services reset"}

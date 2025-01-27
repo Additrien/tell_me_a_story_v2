@@ -1,10 +1,11 @@
 from google.cloud import texttospeech
 import io
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from app.core.languages import LANGUAGE_TO_BCP47, TTS_VOICES, DEFAULT_BCP47
 from app.utils.text_cleanup import clean_text_for_tts
+from app.services.tts_service import TTSService
 
-class GoogleTextToSpeechService:
+class GoogleTextToSpeechService(TTSService):
     DEFAULT_LANGUAGE = DEFAULT_BCP47
     
     def __init__(self):
@@ -15,10 +16,11 @@ class GoogleTextToSpeechService:
         """Convert simple language name to BCP-47 code."""
         return LANGUAGE_TO_BCP47.get(language.lower(), language)
 
-    def _chunk_text(self, text: str, max_bytes: int = 4500) -> list[str]:
+    def _chunk_text(self, text: str, max_chars: Optional[int] = None) -> list[str]:
         """Split long text into manageable chunks"""
         chunks = []
         current_chunk = ""
+        max_bytes = max_chars or 4500
         
         for sentence in text.split('. '):
             if len((current_chunk + sentence).encode('utf-8')) > max_bytes:
@@ -33,7 +35,12 @@ class GoogleTextToSpeechService:
             
         return chunks
 
-    async def convert_text_to_speech(self, text: str, language: str = DEFAULT_LANGUAGE) -> AsyncGenerator[bytes, None]:
+    async def convert_text_to_speech(
+        self,
+        text: str,
+        story_id: str,
+        language: str,
+    ) -> AsyncGenerator[bytes, None]:
         try:
             # Clean text before processing
             text = clean_text_for_tts(text)
@@ -44,7 +51,7 @@ class GoogleTextToSpeechService:
             for chunk in chunks:
                 input_text = texttospeech.SynthesisInput(text=chunk)
                 
-                voice = texttospeech.VoiceSelectionParams(
+                voice_params = texttospeech.VoiceSelectionParams(
                     language_code=language_code,
                     name=self.voices.get(language_code, self.voices["fr-FR"])
                 )
@@ -56,7 +63,7 @@ class GoogleTextToSpeechService:
 
                 response = self.client.synthesize_speech(
                     input=input_text,
-                    voice=voice,
+                    voice=voice_params,
                     audio_config=audio_config
                 )
                 
@@ -64,5 +71,3 @@ class GoogleTextToSpeechService:
             
         except Exception as e:
             raise ValueError(f"Error generating speech for language {language}: {str(e)}")
-
-google_tts_service = GoogleTextToSpeechService()

@@ -1,6 +1,6 @@
 import aiohttp
 import json
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Dict, Any, Optional
 from app.core.config import settings
 from app.services.llm_service import BaseLLMService
 
@@ -20,33 +20,26 @@ class OpenRouterService(BaseLLMService):
         }
         print(f"OpenRouterService initialized with model: {self.model}")
 
-    async def generate_story(self, user_input: str, language: str = "french") -> AsyncGenerator[str, None]:
+    async def generate_story(self, user_input: str, language: str = "french", phase: Optional[str] = None, previous_content: Optional[str] = None) -> AsyncGenerator[str, None]:
         """Generate a story using the OpenRouter API with streaming"""
-        print(f"Starting story generation with language: {language}")
-        print(f"Prompt length: {len(user_input)} characters")
-        
         try:
-            prompt = self._get_story_prompt(user_input, language)
+            prompt = self._get_story_prompt(user_input, language, phase, previous_content)
+            
+            # Adjust max tokens based on phase if applicable
+            max_tokens = settings.STORY_PHASES[phase]["max_tokens"] if phase and settings.ENABLE_PHASED_GENERATION else settings.OPENROUTER_MAX_TOKENS
             
             url = f"{self.base_url}/chat/completions"
             
-            messages = [
-                {"role": "system", "content": settings.get_system_prompt(language)},
-                {"role": "user", "content": prompt}
-            ]
-            
             payload = {
                 "model": self.model,
-                "messages": messages,
+                "messages": [{"role": "user", "content": prompt}],
                 "stream": True,
                 "temperature": settings.OPENROUTER_TEMPERATURE,
-                "max_tokens": settings.OPENROUTER_MAX_TOKENS,
+                "max_tokens": max_tokens,
                 "top_p": settings.OPENROUTER_TOP_P,
                 "frequency_penalty": settings.OPENROUTER_FREQUENCY_PENALTY,
                 "presence_penalty": settings.OPENROUTER_PRESENCE_PENALTY
             }
-            
-            print("Sending API request")
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload, headers=self.headers) as response:
@@ -61,7 +54,6 @@ class OpenRouterService(BaseLLMService):
                         )
                     
                     buffer = ""
-                    
                     async for chunk in response.content:
                         if not chunk:
                             continue
@@ -79,23 +71,23 @@ class OpenRouterService(BaseLLMService):
                                 
                                 if line.startswith('data: '):
                                     if line == 'data: [DONE]':
-                                        print("Story generation completed")
                                         break
                                     
                                     try:
                                         data = json.loads(line[6:])  # Remove 'data: ' prefix
                                         if content := data['choices'][0]['delta'].get('content'):
                                             yield content
-                                    except json.JSONDecodeError as e:
-                                        print(f"JSON decode error: {str(e)}")
+                                    except json.JSONDecodeError:
+                                        if line != 'data: [DONE]':  # Ignore end marker
+                                            print(f"Failed to parse chunk: {line}")
                                         continue
                                     
                         except UnicodeDecodeError as e:
                             print(f"Unicode decode error: {str(e)}")
                             continue
-                            
+                    
         except Exception as e:
-            print(f"Error in story generation: {str(e)}")
+            print(f"Error generating story: {str(e)}")
             raise
 
 openrouter_service = OpenRouterService() 

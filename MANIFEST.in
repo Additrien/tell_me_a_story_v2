@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+recursive-include app/models/kokoro *
+recursive-include app/models/kokoro/modules *.py
+recursive-include app/models/kokoro/voices *.pt
+include app/models/kokoro/config.json 

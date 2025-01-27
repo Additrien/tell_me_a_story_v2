@@ -1,3 +1,7 @@
+ADD __init__.py to models/kokoro/modules/
+Update from app.models.kokoro.istftnet import AdaIN1d, Decoder
+from app.models.kokoro.plbert import load_plbert
+
 # Story Teller API
 
 An AI-powered storytelling API that generates engaging stories for young children using different LLM (Language Model) providers.

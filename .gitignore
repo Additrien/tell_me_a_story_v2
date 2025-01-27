@@ -184,3 +184,5 @@ ENV/
 *tts-credentials*.json
 
 scripts/
+
+app/models/kokoro/

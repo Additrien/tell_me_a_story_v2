@@ -8,3 +8,4 @@ cursorrules
 __pycache__/
 *.pyo
 *.pyc
+app/models/

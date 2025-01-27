@@ -2,7 +2,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Optional
 import json
 from app.services.llm_service import llm_service
-from app.services.text_to_speech import text_to_speech_service
+from app.services.tts_factory import tts_factory
 from app.services.conversation_manager import conversation_manager
 from app.core.language_manager import language_manager
 from app.core.config import settings
@@ -34,7 +34,7 @@ class StoryStreamingWebSocket:
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!)\s', text)
         return [s.strip() for s in sentences if s.strip()]
 
-    async def _process_story_chunk(self, websocket: WebSocket, chunk: str, phase: Optional[str], language: str, sentence_buffer: str) -> tuple[str, str]:
+    async def _process_story_chunk(self, websocket: WebSocket, chunk: str, phase: Optional[str], language: str, sentence_buffer: str, client_id: str) -> str:
         """Process a chunk of story text, handling both text and audio streaming"""
         await websocket.send_json({
             "type": "text",
@@ -51,7 +51,11 @@ class StoryStreamingWebSocket:
             
             # Process complete sentences
             for sentence in sentences[:-1]:
-                async for audio_chunk in text_to_speech_service.convert_text_to_speech(sentence, language):
+                async for audio_chunk in tts_factory.get_service().convert_text_to_speech(
+                    text=sentence,
+                    story_id=client_id,
+                    language=language
+                ):
                     await websocket.send_bytes(audio_chunk)
             
             return new_buffer
@@ -126,7 +130,7 @@ class StoryStreamingWebSocket:
                     phase_output = ""
                     async for chunk in generator:
                         sentence_buffer = await self._process_story_chunk(
-                            websocket, chunk, phase, language, sentence_buffer
+                            websocket, chunk, phase, language, sentence_buffer, client_id
                         )
                         state["complete_story"] += chunk
                         phase_output += chunk
@@ -148,7 +152,7 @@ class StoryStreamingWebSocket:
                 story_output = ""
                 async for chunk in llm_service.generate_story(transcription, language):
                     sentence_buffer = await self._process_story_chunk(
-                        websocket, chunk, None, language, sentence_buffer
+                        websocket, chunk, None, language, sentence_buffer, client_id
                     )
                     state["complete_story"] += chunk
                     story_output += chunk
@@ -162,7 +166,11 @@ class StoryStreamingWebSocket:
                     sentence_buffer += "."
                     state["complete_story"] += "."
                     
-                async for audio_chunk in text_to_speech_service.convert_text_to_speech(sentence_buffer, language):
+                async for audio_chunk in tts_factory.get_service().convert_text_to_speech(
+                    text=sentence_buffer,
+                    story_id=client_id,
+                    language=language
+                ):
                     await websocket.send_bytes(audio_chunk)
                     
             # Store the complete story in history

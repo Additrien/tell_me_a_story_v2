@@ -1,6 +1,9 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional, Literal, Dict, Any
 import os
+import torch
+from pathlib import Path
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Story Teller API"
@@ -60,14 +63,14 @@ class Settings(BaseSettings):
     ENABLED_INPUT_METHODS: list[Literal["voice", "text"]] = ["voice", "text"]
     
     # LLM Service Configuration
-    DEFAULT_LLM_SERVICE: Literal["gemini", "local", "openrouter"] = os.getenv("LLM_SERVICE", "gemini")
+    LLM_SERVICE: Literal["gemini", "local", "openrouter"] = os.getenv("LLM_SERVICE", "gemini")
     
     # Hugging Face Configuration
     HUGGINGFACE_TOKEN: str = os.getenv("HUGGINGFACE_TOKEN", "")
     
     # OpenRouter Configuration
     OPENROUTER_API_KEY: str
-    OPENROUTER_MODEL: str = "anthropic/claude-3-opus-20240229"
+    OPENROUTER_MODEL: str = "nousresearch/hermes-3-llama-3.1-405b"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MAX_TOKENS: int = 2048
     OPENROUTER_TEMPERATURE: float = 0.7
@@ -89,6 +92,16 @@ class Settings(BaseSettings):
     # Audio Configuration
     AUDIO_DEVICE_INDEX: Optional[int] = 7
     TTS_SAMPLE_RATE: int = 16000
+    
+    # TTS Configuration
+    TTS_SERVICE: Literal["google", "kokoro"] = Field(default="google", env="TTS_SERVICE")
+    TTS_DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
+    TTS_MODEL_PATH: Path = Path("app/models/kokoro")
+    TTS_MODEL_WEIGHTS: str = "kokoro-v0_19.pth"
+    TTS_VOICE: str = "af"
+    TTS_CHUNK_SIZE: int = 1000
+    AUDIO_DEBUG_DIR: Path = Path("debug/audio")
+    AUDIO_OUTPUT_DIR: Path = Path("output/audio")
     
     # Google Cloud Configuration
     google_application_credentials: str
