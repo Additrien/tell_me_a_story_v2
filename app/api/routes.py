@@ -11,8 +11,40 @@ import uuid
 from datetime import datetime
 from app.core.languages import LANGUAGE_TO_BCP47, DEFAULT_LANGUAGE
 from app.core.language_manager import language_manager
+from app.models.user import User  # Import the User model
+from app.core.security import hash_password, verify_password  # Import security functions
+from fastapi import Depends, HTTPException, status # Add necessary imports for auth
+from pydantic import BaseModel # For request body validation
 
 router = APIRouter()
+
+# Pydantic models for request bodies
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+# Placeholder for database session - in a real app, this would be a dependency
+async def get_db():
+    # This is a placeholder. In a real application, this would yield a database session.
+    # For example, using SQLAlchemy:
+    # from app.db.session import SessionLocal
+    # db = SessionLocal()
+    # try:
+    #     yield db
+    # finally:
+    #     db.close()
+    yield None # Returning None as we don't have a real DB session here
+
+# Placeholder for current_user dependency - in a real app, this would be more complex
+async def get_current_user(db = Depends(get_db), token: str = Depends(lambda x: None)): # Example token dependency
+    # This is a placeholder. In a real app, this would decode a JWT token
+    # and fetch the user from the database.
+    # For now, it doesn't do anything.
+    return None
 
 def validate_input_method(method: str):
     if method not in settings.ENABLED_INPUT_METHODS:
@@ -154,3 +186,50 @@ async def reload_config():
     settings.Config.env_file = ".env"
     tts_factory.reset()
     return {"message": "Configuration reloaded and services reset"}
+
+@router.post("/users/register", status_code=status.HTTP_201_CREATED)
+async def register_user(user_in: UserCreate, db = Depends(get_db)):
+    """
+    Register a new user.
+    """
+    # In a real app, you would check if the user already exists in the database
+    # For example:
+    # existing_user = db.query(User).filter(User.email == user_in.email).first()
+    # if existing_user:
+    #     raise HTTPException(status_code=400, detail="Email already registered")
+
+    hashed_pass = hash_password(user_in.password)
+    
+    # In a real app, you would create a new User model instance and save it to the database
+    # For example:
+    # new_user = User(email=user_in.email, hashed_password=hashed_pass)
+    # db.add(new_user)
+    # db.commit()
+    # db.refresh(new_user)
+    
+    # Placeholder response
+    return {"email": user_in.email, "message": "User created successfully (placeholder)"}
+
+@router.post("/users/login")
+async def login_user(user_in: UserLogin, db = Depends(get_db)):
+    """
+    Login an existing user.
+    """
+    # In a real app, you would fetch the user from the database
+    # For example:
+    # user = db.query(User).filter(User.email == user_in.email).first()
+    # if not user:
+    #     raise HTTPException(status_code=404, detail="User not found")
+
+    # Placeholder for fetching user and verifying password
+    # For now, let's assume we fetched a user with a known hashed password
+    # (This is NOT secure and only for demonstration without a DB)
+    placeholder_hashed_password = hash_password("testpassword") # Simulate a stored hash
+
+    # if not verify_password(user_in.password, user.hashed_password if user else placeholder_hashed_password):
+    # In a real app, you'd use user.hashed_password from the DB
+    if not verify_password(user_in.password, placeholder_hashed_password): # Simplified for placeholder
+        raise HTTPException(status_code=400, detail="Incorrect password")
+
+    # In a real app, you would generate and return a token (e.g., JWT)
+    return {"message": "Login successful (placeholder)", "email": user_in.email}
