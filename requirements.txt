@@ -22,6 +22,7 @@ distro-info==1.7+build1
 dulwich==0.22.8
 ecdsa==0.19.1
 exceptiongroup==1.2.2
+Faker==37.3.0
 fastjsonschema==2.21.1
 filelock==3.18.0
 findpython==0.6.3
@@ -88,6 +89,7 @@ tornado==6.4.2
 tox==4.25.0
 trove-classifiers==2025.5.1.12
 typing_extensions==4.13.2
+tzdata==2025.2
 unattended-upgrades==0.1
 urllib3==2.4.0
 virtualenv==20.31.1
