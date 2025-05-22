@@ -6,6 +6,11 @@ import torch
 from pathlib import Path
 
 class Settings(BaseSettings):
+    # JWT Settings
+    SECRET_KEY: str = "184c450e1dfd8c8913f9282540a1901b6bb8f29afabde3eca455974d04a3d4cb"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     PROJECT_NAME: str = "Story Teller API"
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"

@@ -12,9 +12,12 @@ from datetime import datetime
 from app.core.languages import LANGUAGE_TO_BCP47, DEFAULT_LANGUAGE
 from app.core.language_manager import language_manager
 from app.models.user import User  # Import the User model
-from app.core.security import hash_password, verify_password  # Import security functions
+# Import the correct get_current_user from app.core.security
+from app.core.security import hash_password, verify_password, create_access_token, get_current_user 
 from fastapi import Depends, HTTPException, status # Add necessary imports for auth
 from pydantic import BaseModel # For request body validation
+from fastapi.security import OAuth2PasswordRequestForm # For login form
+from datetime import timedelta # For token expiration
 
 router = APIRouter()
 
@@ -39,12 +42,8 @@ async def get_db():
     #     db.close()
     yield None # Returning None as we don't have a real DB session here
 
-# Placeholder for current_user dependency - in a real app, this would be more complex
-async def get_current_user(db = Depends(get_db), token: str = Depends(lambda x: None)): # Example token dependency
-    # This is a placeholder. In a real app, this would decode a JWT token
-    # and fetch the user from the database.
-    # For now, it doesn't do anything.
-    return None
+# Removed the placeholder get_current_user function from here.
+# The correct one is imported from app.core.security
 
 def validate_input_method(method: str):
     if method not in settings.ENABLED_INPUT_METHODS:
@@ -231,5 +230,38 @@ async def login_user(user_in: UserLogin, db = Depends(get_db)):
     if not verify_password(user_in.password, placeholder_hashed_password): # Simplified for placeholder
         raise HTTPException(status_code=400, detail="Incorrect password")
 
-    # In a real app, you would generate and return a token (e.g., JWT)
-    return {"message": "Login successful (placeholder)", "email": user_in.email}
+    # In a real app, you would fetch the user from the database.
+    # user = db.query(User).filter(User.email == form_data.username).first()
+    # if not user:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="Incorrect email or password",
+    #         headers={"WWW-Authenticate": "Bearer"},
+    #     )
+
+    # Placeholder for fetching user and verifying password
+    # This is NOT secure and only for demonstration without a DB
+    placeholder_hashed_password = hash_password("testpassword") # Simulate a stored hash for form_data.username
+
+    # if not verify_password(form_data.password, user.hashed_password if user else placeholder_hashed_password):
+    # In a real app, you'd use user.hashed_password from the DB
+    if not verify_password(form_data.password, placeholder_hashed_password): # Simplified for placeholder
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": form_data.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/stories/generate")
+async def generate_story_protected(current_user: User = Depends(get_current_user)):
+    """
+    Protected route to generate a story.
+    Requires authentication.
+    """
+    return {"message": f"Hello {current_user.email}, you can generate a story!"}
