@@ -5,7 +5,7 @@ from huggingface_hub import login
 from threading import Thread
 from typing import AsyncGenerator
 from app.core.config import settings
-from app.services.llm_service import BaseLLMService
+from app.services.llm.base import BaseLLMService
 
 class LocalLLMService(BaseLLMService):
     def __init__(self):

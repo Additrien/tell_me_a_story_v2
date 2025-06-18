@@ -88,6 +88,52 @@
             border-color: #007bff;
             box-shadow: 0 0 0 2px rgba(0,123,255,.25);
         }
+        .lexical-fields {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .lexical-fields h3 {
+            margin-top: 0;
+        }
+        
+        .field-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .field-option {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .field-option:hover {
+            background: #e9e9e9;
+        }
+        
+        .field-option input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
+        .field-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 4px;
+            display: none;
+        }
+        
+        .field-option:hover .field-description {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -98,6 +144,14 @@
         <select id="language-select" onchange="changeLanguage()">
             <!-- Will be populated dynamically -->
         </select>
+    </div>
+    
+    <div class="lexical-fields">
+        <h3>Lexical Fields</h3>
+        <p>Choose the vocabulary themes for your story:</p>
+        <div id="lexical-fields-container" class="field-options">
+            <!-- Will be populated dynamically -->
+        </div>
     </div>
     
     <div class="input-tabs">
@@ -145,9 +199,19 @@
         let mediaStream = null;
         let clientId = null;
         let currentLanguage = null;
+        let availableLexicalFields = {};
         
-        // Load available languages when page loads
+        // Load available languages and lexical fields when page loads
         window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await loadLanguages();
+                await loadLexicalFields();
+            } catch (err) {
+                console.error('Error during initialization:', err);
+            }
+        });
+        
+        async function loadLanguages() {
             try {
                 document.getElementById('status').textContent = 'Loading available languages...';
                 const response = await fetch('/api/v1/languages');
@@ -182,8 +246,54 @@
                 document.getElementById('status').textContent = `Error loading languages: ${err.message}`;
                 document.getElementById('language-select').disabled = true;
             }
-        });
+        }
         
+        async function loadLexicalFields() {
+            try {
+                const response = await fetch('/api/v1/lexical-fields');
+                if (!response.ok) {
+                    throw new Error('Failed to load lexical fields');
+                }
+                
+                availableLexicalFields = await response.json();
+                const container = document.getElementById('lexical-fields-container');
+                container.innerHTML = '';
+                
+                Object.entries(availableLexicalFields).forEach(([field, details]) => {
+                    const div = document.createElement('div');
+                    div.className = 'field-option';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `field-${field}`;
+                    checkbox.value = field;
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `field-${field}`;
+                    label.textContent = field.charAt(0).toUpperCase() + field.slice(1);
+                    
+                    const description = document.createElement('div');
+                    description.className = 'field-description';
+                    description.textContent = details.description;
+                    
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    div.appendChild(description);
+                    container.appendChild(div);
+                });
+                
+            } catch (err) {
+                console.error('Error loading lexical fields:', err);
+                document.getElementById('lexical-fields-container').innerHTML = 
+                    '<p class="error">Failed to load lexical fields</p>';
+            }
+        }
+        
+        function getSelectedLexicalFields() {
+            const checkboxes = document.querySelectorAll('#lexical-fields-container input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
         async function changeLanguage() {
             const select = document.getElementById('language-select');
             const language = select.value;
@@ -257,7 +367,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ text: text })
+                    body: JSON.stringify({ 
+                        text: text,
+                        lexical_fields: getSelectedLexicalFields()
+                    })
                 });
 
                 if (!response.ok) {
@@ -407,37 +520,54 @@
                         }
                     } else {
                         // Handle JSON messages
-                        const message = JSON.parse(event.data);
-                        if (!message.type) {
-                            throw new Error('Invalid message format: missing type');
-                        }
-                        
-                        switch (message.type) {
-                            case 'text':
-                                if (!message.content) break;
-                                const storyText = document.getElementById('story-text');
-                                storyText.textContent += message.content;
-                                break;
-                            case 'interaction_request':
-                                // Show interaction section with prompts
-                                document.getElementById('interaction-section').style.display = 'block';
-                                document.getElementById('interaction-prompt').textContent = message.message;
-                                document.getElementById('status').textContent = 'Waiting for your input to continue the story...';
-                                break;
-                            case 'status':
-                                if (message.message) {
-                                    document.getElementById('status').textContent = message.message;
-                                }
-                                break;
-                            case 'error':
-                                document.getElementById('status').textContent = 'Error: ' + (message.message || 'Unknown error');
-                                break;
-                            default:
-                                console.warn('Unknown message type:', message.type);
+                        console.log("Received text message:", event.data);
+                        try {
+                            const message = JSON.parse(event.data);
+                            console.log("Parsed message:", message);
+                            if (!message.type) {
+                                console.error("Invalid message format: missing type", message);
+                                throw new Error('Invalid message format: missing type');
+                            }
+                            
+                            switch (message.type) {
+                                case 'text':
+                                    if (!message.content) {
+                                        console.warn("Text message missing content:", message);
+                                        break;
+                                    }
+                                    const storyText = document.getElementById('story-text');
+                                    storyText.textContent += message.content;
+                                    break;
+                                case 'interaction_request':
+                                    // Show interaction section with prompts
+                                    document.getElementById('interaction-section').style.display = 'block';
+                                    document.getElementById('interaction-prompt').textContent = message.message;
+                                    document.getElementById('status').textContent = 'Waiting for your input to continue the story...';
+                                    break;
+                                case 'status':
+                                    if (message.message) {
+                                        document.getElementById('status').textContent = message.message;
+                                    }
+                                    break;
+                                case 'error':
+                                    console.error("Server reported error:", message.message);
+                                    document.getElementById('status').textContent = 'Error: ' + (message.message || 'Unknown error');
+                                    // Add visual indication of error
+                                    document.getElementById('status').className = 'error';
+                                    break;
+                                default:
+                                    console.warn('Unknown message type:', message.type, message);
+                            }
+                        } catch (parseError) {
+                            console.error("JSON parse error:", parseError, "Raw data:", event.data);
+                            throw parseError;
                         }
                     }
                 } catch (err) {
-                    console.error('Error handling WebSocket message:', err);
+                    console.error('Error handling WebSocket message:', err, "Event data type:", typeof event.data);
+                    if (typeof event.data === 'string') {
+                        console.error("Message content:", event.data.substring(0, 1000)); // Log first 1000 chars
+                    }
                     document.getElementById('status').textContent = 'Error: Failed to process server message';
                 }
             };

@@ -1,8 +1,8 @@
 import aiohttp
 import json
-from typing import AsyncGenerator, Dict, Any, Optional
+from typing import AsyncGenerator, Dict, Optional
 from app.core.config import settings
-from app.services.llm_service import BaseLLMService
+from app.services.llm.base import BaseLLMService
 
 class OpenRouterError(Exception):
     def __init__(self, message: str, status_code: int = None, response_data: Dict = None):
@@ -20,10 +20,23 @@ class OpenRouterService(BaseLLMService):
         }
         print(f"OpenRouterService initialized with model: {self.model}")
 
-    async def generate_story(self, user_input: str, language: str = "french", phase: Optional[str] = None, previous_content: Optional[str] = None) -> AsyncGenerator[str, None]:
+    async def generate_story(
+        self,
+        user_input: str,
+        language: str = "french",
+        phase: Optional[str] = None,
+        previous_content: Optional[str] = None,
+        chosen_lexical_fields: Optional[list] = None
+    ) -> AsyncGenerator[str, None]:
         """Generate a story using the OpenRouter API with streaming"""
         try:
-            prompt = self._get_story_prompt(user_input, language, phase, previous_content)
+            prompt = self._get_story_prompt(
+                user_input,
+                language,
+                phase,
+                previous_content,
+                chosen_lexical_fields=chosen_lexical_fields
+            )
             
             # Adjust max tokens based on phase if applicable
             max_tokens = settings.STORY_PHASES[phase]["max_tokens"] if phase and settings.ENABLE_PHASED_GENERATION else settings.OPENROUTER_MAX_TOKENS

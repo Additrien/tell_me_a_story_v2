@@ -13,7 +13,19 @@ LANGUAGE_TO_ISO = {
     "russian": "ru",
     "chinese": "zh",
     "japanese": "ja",
-    "korean": "ko"
+    "korean": "ko",
+    "arabic": "ar",
+    "bengali": "bn",
+    "afrikaans": "af",
+    "greek": "el",
+    "hindi": "hi",
+    "malay": "ms",
+    "serbian": "sr",
+    "tagalog": "tl",
+    "thai": "th",
+    "turkish": "tr",
+    "urdu": "ur",
+    "hebrew": "he"
 }
 
 # Simple language names to BCP-47 codes (for text-to-speech)
@@ -29,7 +41,19 @@ LANGUAGE_TO_BCP47 = {
     "russian": "ru-RU",
     "chinese": "zh-CN",
     "japanese": "ja-JP",
-    "korean": "ko-KR"
+    "korean": "ko-KR",
+    "arabic": "ar-AR",
+    "bengali": "bn-BN",
+    "afrikaans": "af-ZA",
+    "greek": "el-GR",
+    "hindi": "hi-IN",
+    "malay": "ms-MY",
+    "serbian": "sr-RS",
+    "tagalog": "tl-PH",
+    "thai": "th-TH",
+    "turkish": "tr-TR",
+    "urdu": "ur-PK",
+    "hebrew": "he-IL"
 }
 
 # Voice mappings for each supported BCP-47 language
@@ -45,7 +69,60 @@ TTS_VOICES = {
     "ru-RU": "ru-RU-Standard-B",
     "zh-CN": "zh-CN-Standard-B",
     "ja-JP": "ja-JP-Standard-B",
-    "ko-KR": "ko-KR-Standard-B"
+    "ko-KR": "ko-KR-Standard-B",
+    "ar-AR": "ar-XA-Standard-B",
+    "bn-BN": "bn-IN-Standard-B",
+    "af-ZA": "af-ZA-Standard-A",
+    "el-GR": "el-GR-Standard-A",
+    "hi-IN": "hi-IN-Standard-B",
+    "ms-MY": "ms-MY-Standard-A",
+    "sr-RS": "sr-RS-Standard-A",
+    "tl-PH": "fil-PH-Standard-A",
+    "th-TH": "th-TH-Standard-A",
+    "tr-TR": "tr-TR-Standard-B",
+    "ur-PK": "ur-PK-Standard-A",
+    "he-IL": "he-IL-Standard-A"
+}
+
+# Play.ai language mappings
+PLAY_LANGUAGES = {
+    "french": "french",
+    "english": "english",
+    "spanish": "spanish",
+    "german": "german",
+    "italian": "italian",
+    "portuguese": "portuguese",
+    "dutch": "dutch",
+    "polish": "polish",
+    "russian": "russian",
+    "mandarin": "mandarin",
+    "japanese": "japanese",
+    "korean": "korean",
+    "arabic": "arabic",
+    "bengali": "bengali",
+    "bulgarian": "bulgarian",
+    "catalan": "catalan",
+    "croatian": "croatian",
+    "czech": "czech",
+    "danish": "danish",
+    "galician": "galician",
+    "greek": "greek",
+    "hebrew": "hebrew",
+    "hindi": "hindi",
+    "hungarian": "hungarian",
+    "indonesian": "indonesian",
+    "malay": "malay",
+    "serbian": "serbian",
+    "swedish": "swedish",
+    "tagalog": "tagalog",
+    "thai": "thai",
+    "turkish": "turkish",
+    "ukrainian": "ukrainian",
+    "urdu": "urdu",
+    "xhosa": "xhosa",
+    "afrikaans": "afrikaans",
+    "albanian": "albanian",
+    "amharic": "amharic"
 }
 
 DEFAULT_LANGUAGE = "french"

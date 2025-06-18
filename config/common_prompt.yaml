@@ -1,0 +1,29 @@
+common:
+  language_rule: |
+    STRICT LANGUAGE RULE:
+    You MUST write ONLY in {language}. No other language is allowed.
+    - French for "french"
+    - English for "english"
+    - Spanish for "spanish"
+
+  format_rules:
+    - Begin the story {continuation_instruction}
+    - No introductions or meta-commentary
+    - Write as a continuous narrative
+    - For Exposition, Rising Action, and Climax phases only: End with a clear pause point that invites interaction
+    - NEVER end a phase mid-sentence
+    - Each phase MUST end with a complete thought that creates anticipation
+
+  writing_style:
+    - "Match vocabulary to story context"
+    - "Create immersive scenes"
+    - "Keep consistent tone throughout"
+
+  tts_formatting:
+    allowed_punctuation: [". , ? ! \""]
+    rules:
+      - "Write all numbers as words (e.g., 'two' instead of '2')"
+      - "Use complete words, no abbreviations"
+      - "For dialogue, use only simple quotation marks: 'Hello,' said Tom."
+      - "NO special characters: no asterisks (*), no dashes (-), no parentheses, no brackets, no ellipsis (...)"
+      - "NO text formatting markers (*, _, ~, ^)" 

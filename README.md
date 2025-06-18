@@ -4,7 +4,7 @@ from app.models.kokoro.plbert import load_plbert
 
 # Story Teller API
 
-An AI-powered storytelling API that generates engaging stories for young children using different LLM (Language Model) providers.
+An AI-powered storytelling API that generates engaging stories using different LLM (Language Model) providers.
 
 ## Features
 
@@ -46,6 +46,28 @@ google_cloud_project=your-project-id
 ```
 
 ## Configuration
+
+### Deployment Type
+
+The API supports two deployment types, which must be chosen at deployment time:
+
+1. Children's Stories (default):
+```env
+DEPLOYMENT_TYPE=children
+```
+- Educational and entertaining stories suitable for young children
+- Age-appropriate content and themes
+- Focus on positive messages and character development
+
+2. Adult Content:
+```env
+DEPLOYMENT_TYPE=adults
+```
+- Mature content with romantic and intimate themes
+- Enhanced vocabulary for emotional and sensual descriptions
+- Sophisticated narrative structures
+
+The deployment type MUST be set before starting the server and cannot be changed at runtime. This ensures content safety and appropriate usage based on your deployment needs.
 
 ### LLM Service Selection
 

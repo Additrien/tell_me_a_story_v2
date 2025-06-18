@@ -1,9 +1,10 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import Optional, Literal, Dict, Any
+from typing import Optional, Literal, Dict, Any, ClassVar
 import os
 import torch
 from pathlib import Path
+import yaml
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Story Teller API"
@@ -94,126 +95,89 @@ class Settings(BaseSettings):
     TTS_SAMPLE_RATE: int = 16000
     
     # TTS Configuration
-    TTS_SERVICE: Literal["google", "kokoro"] = Field(default="google", env="TTS_SERVICE")
+    TTS_SERVICE: Literal["fal"] = Field(default="fal", env="TTS_SERVICE")
     TTS_DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
-    TTS_MODEL_PATH: Path = Path("app/models/kokoro")
-    TTS_MODEL_WEIGHTS: str = "kokoro-v0_19.pth"
-    TTS_VOICE: str = "af"
     TTS_CHUNK_SIZE: int = 1000
     AUDIO_DEBUG_DIR: Path = Path("debug/audio")
     AUDIO_OUTPUT_DIR: Path = Path("output/audio")
+    
+    # Fal.ai Configuration
+    FAL_API_KEY: str = os.getenv("FAL_API_KEY", "")
     
     # Google Cloud Configuration
     google_application_credentials: str
     google_cloud_project: str
     
-    # Story Configuration
-    STORY_PROMPT_TEMPLATE: str = """
-    You are a master storyteller for young children aged 6 years old.
-
-    STRICT LANGUAGE RULE:
-    You MUST write ONLY in {language}. No other language is allowed.
-    - French for "french"
-    - English for "english"
-    - Spanish for "spanish"
-
-    {previous_story_section}
-
-    {phase_prompt}
-
-    STORYTELLING FORMAT:
-    - Begin the story {continuation_instruction}
-    - No introductions or meta-commentary
-    - No addressing the listener directly
-    - Write as a continuous narrative
-    - For Exposition, Rising Action, and Climax phases only: End with a clear pause point that invites interaction
-    - NEVER end a phase mid-sentence
-    - Each phase MUST end with a complete thought that creates anticipation
-
-    PHASE ENDINGS (for Exposition, Rising Action, and Climax only):
-    - Exposition: End with a complete sentence that creates a clear moment of curiosity (e.g., "Lulu's nose caught an intriguing scent that made her whiskers tingle with excitement.")
-    - Rising Action: End with a complete sentence showing a clear choice (e.g., "Lulu had to decide: should she take the risky path through the cat's territory, or the longer route through the dark basement?")
-    - Climax: End with a complete sentence at the peak of tension (e.g., "As the cat's shadow loomed closer, Lulu clutched the precious piece of cheese, knowing she had only seconds to make her move.")
-
-    STORY STRUCTURE:
-    - {story_start_instruction}
-    - Build tension and challenges appropriate to the story's genre and theme
-    - Include moments that showcase the main character's defining traits
-    - End with a resolution that fits the story's tone and theme
-
-    FAILURE PENALTY:
-    - If you fail to end the Exposition, Rising Action, or Climax phase with a complete sentence as described, your response will be discarded and you will have to generate it again.
-    - Include moments that showcase the main character's defining traits
-    - End with a resolution that fits the story's tone and theme
- 
-    GENRE ADAPTATION:
-    - Identify the core genre from the user's request
-    - Match narrative style to genre expectations
-    - Scale conflict and action to genre conventions
-    - Use appropriate vocabulary and tone
-    - Maintain genre-specific story beats
-    - Honor genre tropes while keeping age-appropriate
-
-    CHARACTER DEVELOPMENT:
-    - Establish character traits early
-    - Show character abilities consistently
-    - Build challenges that test the character
-    - Demonstrate growth through actions
-    - Keep powers/abilities consistent throughout
-    - Match character actions to their established nature
-
-    WRITING STYLE:
-    - Match vocabulary to story context
-    - Use vivid, age-appropriate descriptions
-    - Balance action and character moments
-    - Create immersive scenes
-    - Keep consistent tone throughout
-
-    EMOTIONAL JOURNEY:
-    - Create stakes that matter to the character
-    - Build tension naturally
-    - Include moments of triumph
-    - Show character relationships
-    - Maintain emotional authenticity
-
-    TEXT-TO-SPEECH FORMATTING:
-    - Use ONLY these punctuation marks: period (.), comma (,), question mark (?), exclamation mark (!), and simple quotes (")
-    - Write all numbers as words (e.g., "two" instead of "2")
-    - Use complete words, no abbreviations
-    - For dialogue, use only simple quotation marks: "Hello," said Tom.
-    - NO special characters: no asterisks (*), no dashes (-), no parentheses, no brackets, no ellipsis (...)
-    - NO sound effects in text (like *bang*, *whoosh*, etc.)
-    - NO text formatting markers (*, _, ~, ^)
-    - Write sound effects as part of the narrative (e.g., "There was a loud knock at the door" instead of "*knock knock*")
-
-    CONTENT RULES:
-    - Age-appropriate content only
-    - No graphic elements
-    - Focus on positive themes
-    - Keep intensity manageable for young children
-    - Celebrate character virtues
-
-    CHILD'S INPUT:
-    "{user_input}"
-    """
+    # Deployment Configuration
+    DEPLOYMENT_TYPE: Literal["children", "adults"] = Field(
+        default="children",
+        env="DEPLOYMENT_TYPE",
+        description="Type of deployment - determines available content and features"
+    )
     
-    @property
-    def STORY_PROMPT(self) -> str:
-        return self.STORY_PROMPT_TEMPLATE
+    # Llama Configuration
+    LLAMA_MAX_NEW_TOKENS: int = 2048
+    LLAMA_TEMPERATURE: float = 0.7
+    LLAMA_TOP_P: float = 0.8
+    LLAMA_TOP_K: int = 40
+
+    # Play.AI Configuration
+    PLAY_USER_ID: str = ""
+    PLAY_SECRET_KEY: str = ""
     
+    def _load_prompt_template(self) -> Dict[str, Any]:
+        """Load and merge common and specific prompt templates."""
+        try:
+            # Load common prompt template
+            with open("config/common_prompt.yaml", 'r') as f:
+                common_config = yaml.safe_load(f)['common']
+
+            # Load specific prompt template
+            config_file = f"config/{self.DEPLOYMENT_TYPE}_prompt.yaml"
+            with open(config_file, 'r') as f:
+                specific_config = yaml.safe_load(f)['story_prompt']
+
+            # Merge format rules if they exist in both
+            if 'format_rules' in specific_config:
+                # Keep only specific rules, common rules will be referenced in template
+                specific_config['format_rules'] = specific_config['format_rules']
+
+            # Merge writing style if it exists in both
+            if 'writing_style' in specific_config:
+                # Keep only specific rules, common rules will be referenced in template
+                specific_config['writing_style'] = specific_config['writing_style']
+
+            # Merge TTS formatting rules if they exist in both
+            if 'tts_formatting' in specific_config:
+                # Keep only specific rules, common rules will be referenced in template
+                specific_config['tts_formatting'] = {
+                    'rules': specific_config['tts_formatting']['rules']
+                }
+
+            return specific_config
+        except Exception as e:
+            print(f"Error loading prompt template: {str(e)}")
+            raise
+
+    def get_available_lexical_fields(self) -> Dict[str, Dict[str, Any]]:
+        """Get all available lexical fields for the current deployment type."""
+        prompt_config = self._load_prompt_template()
+        return prompt_config.get('lexical_fields', {})
+
     def get_story_prompt(
         self,
         language: str,
         user_input: str,
-        previous_story: str | None = None,
-        phase_prompt: str | None = None
+        previous_story: Optional[str] = None,
+        phase_prompt: Optional[str] = None,
+        chosen_lexical_fields: Optional[list] = None
     ) -> str:
         """Format the story prompt with the given parameters."""
         try:
             print(f"DEBUG - Settings.get_story_prompt called with language={language}")
             
             if phase_prompt and "Exposition" in phase_prompt:
-                previous_story_section = "This is a new story request. Create an original story based on the child's input."
+                previous_story_section = "This is a new story request. Create an original story based on the input."
                 continuation_instruction = "with a fresh narrative"
                 story_start_instruction = "Start with a strong hook"
             elif phase_prompt and "Rising Action" in phase_prompt:
@@ -238,18 +202,84 @@ class Settings(BaseSettings):
                 continuation_instruction = "by continuing the adventure"
                 story_start_instruction = "Pick up where we left off"
             else:
-                previous_story_section = "This is a new story request. Create an original story based on the child's input."
+                previous_story_section = "This is a new story request. Create an original story based on the input."
                 continuation_instruction = "with a fresh narrative"
                 story_start_instruction = "Start with a strong hook"
+
+            prompt_config = self._load_prompt_template()
             
+            # Load common config for template references
+            with open("config/common_prompt.yaml", 'r') as f:
+                common_config = yaml.safe_load(f)['common']
+            
+            def format_rule(rule, include_story_start=False):
+                if isinstance(rule, str):
+                    if include_story_start:
+                        return rule.format(story_start_instruction=story_start_instruction)
+                    return rule.format(continuation_instruction=continuation_instruction)
+                elif isinstance(rule, dict):
+                    key = list(rule.keys())[0]
+                    value = list(rule.values())[0]
+                    return f"{key}: {value}"
+                return str(rule)
+            
+            # Format common config lists
+            common_format_rules = [format_rule(rule) for rule in common_config['format_rules']]
+            common_config['format_rules'] = "\n".join([f"- {rule}" for rule in common_format_rules])
+            common_config['writing_style'] = "\n".join([f"- {style}" for style in common_config['writing_style']])
+            common_config['language_rule'] = common_config['language_rule'].format(language=language)
+            
+            # Process format rules from config
+            specific_format_rules = [format_rule(rule) for rule in prompt_config.get('format_rules', [])]
+            format_rules = "\n".join([f"- {rule}" for rule in specific_format_rules])
+            
+            lexical_fields_section = "\n".join([f"- {field}" for field in chosen_lexical_fields]) if chosen_lexical_fields else "None selected"
+
+            # Add validation for required sections
+            required_sections = ['format_rules']
+            for section in required_sections:
+                if section not in prompt_config:
+                    raise ValueError(f"Missing required prompt section: {section} in {self.DEPLOYMENT_TYPE} config")
+
             print("DEBUG - About to format prompt template")
-            formatted_prompt = self.STORY_PROMPT.format(
+            phase_endings = "\n".join([f"- {k}: {v}" for k,v in prompt_config.get('phase_endings', {}).items()])
+            story_structure = "\n".join([f"- {format_rule(item, include_story_start=True)}" for item in prompt_config.get('story_structure', [])])
+            genre_adaptation = "\n".join([f"- {rule}" for rule in prompt_config.get('genre_adaptation', [])])
+            key_elements = "\n".join([f"- {item}" for item in prompt_config.get('key_elements', [])])
+            writing_style = "\n".join([f"- {item}" for item in prompt_config.get('writing_style', [])])
+
+            # Format TTS rules
+            common_tts = common_config['tts_formatting']
+            specific_tts = prompt_config.get('tts_formatting', {})
+            
+            tts_rules = []
+            # Add common rules only once
+            tts_rules.extend(common_tts['rules'])
+            # Add specific rules if they exist
+            if 'rules' in specific_tts:
+                tts_rules.extend(specific_tts['rules'])
+            
+            common_config['tts_formatting'] = (
+                f"Allowed punctuation: {', '.join(common_tts['allowed_punctuation'])}\n"
+                + "\n".join([f"- {rule}" for rule in tts_rules])
+            )
+
+            # Format the template with both common and specific elements
+            formatted_prompt = prompt_config['template'].format(
                 language=language,
                 user_input=user_input,
                 previous_story_section=previous_story_section,
                 continuation_instruction=continuation_instruction,
                 story_start_instruction=story_start_instruction,
-                phase_prompt=phase_prompt or ""
+                phase_prompt=phase_prompt or "",
+                format_rules=format_rules,
+                lexical_fields_section=lexical_fields_section,
+                phase_endings=phase_endings,
+                story_structure=story_structure,
+                genre_adaptation=genre_adaptation,
+                key_elements=key_elements,
+                writing_style=writing_style,
+                common=common_config  # Pass the entire common config for template references
             )
             print("DEBUG - Successfully formatted prompt")
             return formatted_prompt
@@ -258,12 +288,6 @@ class Settings(BaseSettings):
             print(f"DEBUG - Error type: {type(e)}")
             raise
 
-    # Llama Configuration
-    LLAMA_MAX_NEW_TOKENS: int = 2048
-    LLAMA_TEMPERATURE: float = 0.7
-    LLAMA_TOP_P: float = 0.8
-    LLAMA_TOP_K: int = 40
-        
     class Config:
         env_file = ".env"
 

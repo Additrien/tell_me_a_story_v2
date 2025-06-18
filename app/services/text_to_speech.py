@@ -65,4 +65,6 @@ class GoogleTextToSpeechService:
         except Exception as e:
             raise ValueError(f"Error generating speech for language {language}: {str(e)}")
 
+# Create default instance
 google_tts_service = GoogleTextToSpeechService()
+text_to_speech_service = google_tts_service  # For backward compatibility

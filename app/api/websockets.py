@@ -1,12 +1,16 @@
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Optional
 import json
-from app.services.llm_service import llm_service
-from app.services.tts_factory import tts_factory
+from app.services.tts.tts_factory import tts_factory
 from app.services.conversation_manager import conversation_manager
 from app.core.language_manager import language_manager
 from app.core.config import settings
+# Remove circular import
+# import main
+# from app.services.llm.global_service import llm_service
 import re
+import traceback
+import sys
 
 class StoryStreamingWebSocket:
     def __init__(self):
@@ -15,6 +19,7 @@ class StoryStreamingWebSocket:
         
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
+        print(f"WebSocket connected: client_id={client_id}")
         self.active_connections[client_id] = websocket
         self.story_states[client_id] = {
             "complete_story": "",
@@ -23,6 +28,7 @@ class StoryStreamingWebSocket:
         }
         
     def disconnect(self, client_id: str):
+        print(f"WebSocket disconnected: client_id={client_id}")
         if client_id in self.active_connections:
             self.active_connections.pop(client_id)
         if client_id in self.story_states:
@@ -36,30 +42,63 @@ class StoryStreamingWebSocket:
 
     async def _process_story_chunk(self, websocket: WebSocket, chunk: str, phase: Optional[str], language: str, sentence_buffer: str, client_id: str) -> str:
         """Process a chunk of story text, handling both text and audio streaming"""
-        await websocket.send_json({
-            "type": "text",
-            "content": chunk,
-            "phase": phase
-        })
-        
-        sentence_buffer += chunk
-        sentences = self._split_into_sentences(sentence_buffer)
-        
-        if len(sentences) > 1:
-            # Keep last incomplete sentence in buffer
-            new_buffer = sentences[-1]
+        try:
+            print(f"Processing story chunk: client_id={client_id}, phase={phase}, chunk_length={len(chunk)}")
+            await websocket.send_json({
+                "type": "text",
+                "content": chunk,
+                "phase": phase
+            })
             
-            # Process complete sentences
-            for sentence in sentences[:-1]:
-                async for audio_chunk in tts_factory.get_service().convert_text_to_speech(
-                    text=sentence,
-                    story_id=client_id,
-                    language=language
-                ):
-                    await websocket.send_bytes(audio_chunk)
+            sentence_buffer += chunk
+            sentences = self._split_into_sentences(sentence_buffer)
             
-            return new_buffer
-        return sentence_buffer
+            if len(sentences) > 1:
+                # Keep last incomplete sentence in buffer
+                new_buffer = sentences[-1]
+                
+                # Process complete sentences
+                for sentence in sentences[:-1]:
+                    print(f"Converting sentence to speech: client_id={client_id}, sentence_length={len(sentence)}")
+                    try:
+                        async for audio_chunk in tts_factory.get_service().convert_text_to_speech(
+                            text=sentence,
+                            story_id=client_id,
+                            language=language
+                        ):
+                            # Check if this is a fallback message (JSON) or actual audio bytes
+                            try:
+                                # Try to decode as JSON (fallback service response)
+                                fallback_msg = json.loads(audio_chunk.decode('utf-8'))
+                                if isinstance(fallback_msg, dict) and fallback_msg.get("type") == "tts_unavailable":
+                                    # Send a message to the client that TTS is unavailable
+                                    await websocket.send_json({
+                                        "type": "tts_unavailable",
+                                        "message": fallback_msg.get("message", "TTS service unavailable"),
+                                        "text": fallback_msg.get("text", sentence)
+                                    })
+                                    # Only send this message once per session
+                                    if client_id not in self.story_states or "tts_unavailable_notified" not in self.story_states[client_id]:
+                                        if client_id in self.story_states:
+                                            self.story_states[client_id]["tts_unavailable_notified"] = True
+                            except (UnicodeDecodeError, json.JSONDecodeError):
+                                # This is actual audio data, send it as bytes
+                                await websocket.send_bytes(audio_chunk)
+                    except Exception as tts_error:
+                        print(f"TTS error for sentence: {str(tts_error)}")
+                        # Send a message to the client that TTS failed for this sentence
+                        await websocket.send_json({
+                            "type": "tts_error",
+                            "message": f"Failed to generate speech: {str(tts_error)}",
+                            "text": sentence
+                        })
+                
+                return new_buffer
+            return sentence_buffer
+        except Exception as e:
+            print(f"Error in _process_story_chunk: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
+            raise
 
     async def _request_user_interaction(self, websocket: WebSocket, client_id: str, next_phase: str) -> str:
         """Request and wait for user interaction between phases"""
@@ -89,9 +128,44 @@ class StoryStreamingWebSocket:
         
         return ""  # Fallback in case of issues
         
-    async def stream_story(self, websocket: WebSocket, transcription: str, language: str = None, client_id: str = None):
-        """Stream story generation and audio through WebSocket"""
+    async def stream_story(
+        self,
+        websocket: WebSocket,
+        transcription: str,
+        language: str,
+        client_id: str
+    ):
+        """Stream story generation to the client"""
         try:
+            print(f"Starting story streaming: client_id={client_id}, language={language}, transcription_length={len(transcription)}")
+            # Initialize story state if not exists
+            if client_id not in self.story_states:
+                self.story_states[client_id] = {"complete_story": "", "current_phase": None}
+            
+            # Get the story generator - reimport to ensure we get the latest instance
+            import app.services.llm.global_service
+            story_generator = app.services.llm.global_service.llm_service
+            
+            if not story_generator:
+                error_msg = "LLM service not initialized"
+                print(f"Error: {error_msg}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": error_msg
+                })
+                print(f"Error message sent to client: {error_msg}")
+                return
+            
+            print(f"Using LLM service: {type(story_generator).__name__}")
+            
+            # Get lexical fields from state if available
+            lexical_fields = None
+            if client_id in self.story_states:
+                lexical_fields = self.story_states[client_id].get("lexical_fields")
+                if lexical_fields:
+                    print(f"Using lexical fields: {lexical_fields}")
+
+            # Generate story with lexical fields
             language = language or language_manager.current_language
             state = self.story_states.get(client_id, {
                 "complete_story": "",
@@ -120,23 +194,20 @@ class StoryStreamingWebSocket:
                     print(f"\n=== Phase {i+1}: {phase} ===")
                     
                     # Process story chunks for this phase
-                    generator = llm_service.generate_story_phase(
-                        transcription, 
+                    async for chunk in story_generator.generate_story_phase(
+                        transcription,
                         phase=phase,
                         language=language,
-                        previous_content=state["complete_story"] if state["complete_story"] else None
-                    )
-                    
-                    phase_output = ""
-                    async for chunk in generator:
+                        previous_content=state["complete_story"] if state["complete_story"] else None,
+                        chosen_lexical_fields=lexical_fields
+                    ):
                         sentence_buffer = await self._process_story_chunk(
                             websocket, chunk, phase, language, sentence_buffer, client_id
                         )
                         state["complete_story"] += chunk
-                        phase_output += chunk
                     
                     print(f"\nLLM Output ({phase}):")
-                    print(f"{phase_output}")
+                    print(f"{state['complete_story']}")
                     print(f"=== End of {phase} ===\n")
 
                     # Request user interaction after Exposition, Rising Action, and Climax
@@ -149,30 +220,51 @@ class StoryStreamingWebSocket:
                             transcription = f"{transcription}\n\nFor the {next_phase} phase: {user_input}"
             else:
                 # Process story chunks without phases
-                story_output = ""
-                async for chunk in llm_service.generate_story(transcription, language):
+                async for chunk in story_generator.generate_story(
+                    transcription,
+                    language,
+                    chosen_lexical_fields=lexical_fields
+                ):
                     sentence_buffer = await self._process_story_chunk(
                         websocket, chunk, None, language, sentence_buffer, client_id
                     )
                     state["complete_story"] += chunk
-                    story_output += chunk
-                
-                print("\nLLM Output (No Phases):")
-                print(f"{story_output}")
             
             # Process remaining text
             if sentence_buffer:
                 if not re.search(r'[.!?]$', sentence_buffer):
                     sentence_buffer += "."
                     state["complete_story"] += "."
-                    
-                async for audio_chunk in tts_factory.get_service().convert_text_to_speech(
-                    text=sentence_buffer,
-                    story_id=client_id,
-                    language=language
-                ):
-                    await websocket.send_bytes(audio_chunk)
-                    
+                
+                try:
+                    async for audio_chunk in tts_factory.get_service().convert_text_to_speech(
+                        text=sentence_buffer,
+                        story_id=client_id,
+                        language=language
+                    ):
+                        # Check if this is a fallback message (JSON) or actual audio bytes
+                        try:
+                            # Try to decode as JSON (fallback service response)
+                            fallback_msg = json.loads(audio_chunk.decode('utf-8'))
+                            if isinstance(fallback_msg, dict) and fallback_msg.get("type") == "tts_unavailable":
+                                # Send a message to the client that TTS is unavailable
+                                await websocket.send_json({
+                                    "type": "tts_unavailable",
+                                    "message": fallback_msg.get("message", "TTS service unavailable"),
+                                    "text": fallback_msg.get("text", sentence_buffer)
+                                })
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            # This is actual audio data, send it as bytes
+                            await websocket.send_bytes(audio_chunk)
+                except Exception as tts_error:
+                    print(f"TTS error for final sentence: {str(tts_error)}")
+                    # Send a message to the client that TTS failed for this sentence
+                    await websocket.send_json({
+                        "type": "tts_error",
+                        "message": f"Failed to generate speech: {str(tts_error)}",
+                        "text": sentence_buffer
+                    })
+            
             # Store the complete story in history
             conversation_manager.add_story(transcription, state["complete_story"], language)
             
@@ -187,13 +279,18 @@ class StoryStreamingWebSocket:
             })
             
         except WebSocketDisconnect:
-            print(f"Client disconnected during story streaming")
+            print(f"Client disconnected during story streaming: client_id={client_id}")
             raise
         except Exception as e:
-            print(f"Error in story streaming: {str(e)}")
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
+            error_msg = str(e)
+            print(f"Error in story streaming: {error_msg}")
+            print(f"Traceback: {traceback.format_exc()}")
+            try:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": error_msg
+                })
+            except Exception as send_error:
+                print(f"Failed to send error message: {str(send_error)}")
             
 story_ws = StoryStreamingWebSocket()
